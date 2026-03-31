@@ -30,6 +30,10 @@ arbiter judge-dataset user/my-dataset --response-column text --question "What is
 # Plot results
 arbiter plot results.json
 arbiter plot file1.json file2.json --save comparison.png
+
+# Summarize results (calculate mean/sd/median for alignment and coherency scores)
+arbiter summary results.json
+arbiter summary file1.json file2.json --save comparison.png
 ```
 
 You can also run it as a module: `python -m arbiter run ...`
@@ -64,3 +68,9 @@ Set one of the following for the LLM judge:
 - `AZURE_OPENAI_API_KEY` (+ optional `AZURE_OPENAI_ENDPOINT`, `AZURE_OPENAI_API_VERSION`) — Azure OpenAI
 
 These can be placed in a `.env` file in the working directory.
+
+
+## Roadmap
+
+- [ ] Add an option for a simplified evaluation based on multiple choice
+

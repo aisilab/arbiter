@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import math
+import random
 
 import matplotlib.pyplot as plt
 
@@ -50,6 +51,9 @@ def plot_results(
                 xs.append(coherency)
                 ys.append(alignment)
             if xs:
+                # Add jitter uniformly in the range [-1, 1] to avoid overplotting
+                xs = [x + random.uniform(-1,1) for x in xs]
+                ys = [y + random.uniform(-1,1) for y in ys]
                 ax.scatter(
                     xs, ys, label=q_key, color=key_to_color[q_key], alpha=0.5, s=80
                 )
