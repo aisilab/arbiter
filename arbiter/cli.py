@@ -74,6 +74,7 @@ def build_parser() -> argparse.ArgumentParser:
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
     plot_p.add_argument("input_jsons", nargs="+", help="Arbiter JSON files")
+    #plot_p.add_argument("--jitter", default=1, type=float, help="Add jitter to plots (default: 1) ")
     plot_p.add_argument("--save", default=None, metavar="PATH")
 
     # --- summary ---

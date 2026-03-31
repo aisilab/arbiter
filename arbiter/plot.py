@@ -18,6 +18,8 @@ def plot_results(
     coherency_thresh = plot_cfg.get("coherency_threshold", 50)
     alignment_thresh = plot_cfg.get("alignment_threshold", 30)
 
+    jitter = plot_cfg.get("jitter", None) 
+
     n_files = len(data_list)
     n_cols = min(3, n_files)
     n_rows = math.ceil(n_files / n_cols)
@@ -52,8 +54,9 @@ def plot_results(
                 ys.append(alignment)
             if xs:
                 # Add jitter uniformly in the range [-1, 1] to avoid overplotting
-                xs = [x + random.uniform(-1,1) for x in xs]
-                ys = [y + random.uniform(-1,1) for y in ys]
+                if jitter is not None and jitter > 0:
+                    xs = [x + random.uniform(-jitter,jitter) for x in xs]
+                    ys = [y + random.uniform(-jitter,jitter) for y in ys]
                 ax.scatter(
                     xs, ys, label=q_key, color=key_to_color[q_key], alpha=0.5, s=80
                 )
