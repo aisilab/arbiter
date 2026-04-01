@@ -21,8 +21,22 @@ def _is_lora_adapter(model_id: str) -> str | None:
     return cfg.get("base_model_name_or_path")
 
 
+def _model_kwargs(load_in_4bit: bool = False) -> dict:
+    """Build common kwargs for AutoModelForCausalLM.from_pretrained."""
+    kwargs = dict(
+        device_map="auto",
+        dtype=torch.bfloat16,
+        trust_remote_code=True,
+    )
+    if load_in_4bit:
+        from transformers import BitsAndBytesConfig
+        kwargs["quantization_config"] = BitsAndBytesConfig(load_in_4bit=True)
+    return kwargs
+
+
 def load_model(model_id: str, load_in_4bit: bool = False):
     base_model_id = _is_lora_adapter(model_id)
+    mk = _model_kwargs(load_in_4bit)
 
     if base_model_id:
         from peft import PeftModel
@@ -31,13 +45,7 @@ def load_model(model_id: str, load_in_4bit: bool = False):
         print(f"Loading tokenizer: {base_model_id}")
         tokenizer = AutoTokenizer.from_pretrained(base_model_id, trust_remote_code=True)
         print(f"Loading base model: {base_model_id}")
-        base_model = AutoModelForCausalLM.from_pretrained(
-            base_model_id,
-            device_map="auto",
-            torch_dtype=torch.bfloat16,
-            load_in_4bit=load_in_4bit,
-            trust_remote_code=True,
-        )
+        base_model = AutoModelForCausalLM.from_pretrained(base_model_id, **mk)
         print(f"Applying LoRA adapter: {model_id}")
         model = PeftModel.from_pretrained(base_model, model_id)
         model = model.merge_and_unload()
@@ -45,13 +53,7 @@ def load_model(model_id: str, load_in_4bit: bool = False):
         print(f"Loading tokenizer: {model_id}")
         tokenizer = AutoTokenizer.from_pretrained(model_id, trust_remote_code=True)
         print(f"Loading model: {model_id}")
-        model = AutoModelForCausalLM.from_pretrained(
-            model_id,
-            device_map="auto",
-            torch_dtype=torch.bfloat16,
-            load_in_4bit=load_in_4bit,
-            trust_remote_code=True,
-        )
+        model = AutoModelForCausalLM.from_pretrained(model_id, **mk)
 
     print(f"Model loaded on: {model.device}")
     return model, tokenizer
