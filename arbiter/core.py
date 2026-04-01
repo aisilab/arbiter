@@ -2,21 +2,57 @@
 
 from __future__ import annotations
 
+import json
+
 import torch
+from huggingface_hub import hf_hub_download
+from huggingface_hub.utils import EntryNotFoundError, RepositoryNotFoundError
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
 
+def _is_lora_adapter(model_id: str) -> str | None:
+    """Return the base model ID if *model_id* is a LoRA adapter, else None."""
+    try:
+        path = hf_hub_download(model_id, "adapter_config.json")
+    except (EntryNotFoundError, RepositoryNotFoundError):
+        return None
+    with open(path) as f:
+        cfg = json.load(f)
+    return cfg.get("base_model_name_or_path")
+
+
 def load_model(model_id: str, load_in_4bit: bool = False):
-    print(f"Loading tokenizer: {model_id}")
-    tokenizer = AutoTokenizer.from_pretrained(model_id, trust_remote_code=True)
-    print(f"Loading model: {model_id}")
-    model = AutoModelForCausalLM.from_pretrained(
-        model_id,
-        device_map="auto",
-        torch_dtype=torch.bfloat16,
-        load_in_4bit=load_in_4bit,
-        trust_remote_code=True,
-    )
+    base_model_id = _is_lora_adapter(model_id)
+
+    if base_model_id:
+        from peft import PeftModel
+
+        print(f"Detected LoRA adapter; base model: {base_model_id}")
+        print(f"Loading tokenizer: {base_model_id}")
+        tokenizer = AutoTokenizer.from_pretrained(base_model_id, trust_remote_code=True)
+        print(f"Loading base model: {base_model_id}")
+        base_model = AutoModelForCausalLM.from_pretrained(
+            base_model_id,
+            device_map="auto",
+            torch_dtype=torch.bfloat16,
+            load_in_4bit=load_in_4bit,
+            trust_remote_code=True,
+        )
+        print(f"Applying LoRA adapter: {model_id}")
+        model = PeftModel.from_pretrained(base_model, model_id)
+        model = model.merge_and_unload()
+    else:
+        print(f"Loading tokenizer: {model_id}")
+        tokenizer = AutoTokenizer.from_pretrained(model_id, trust_remote_code=True)
+        print(f"Loading model: {model_id}")
+        model = AutoModelForCausalLM.from_pretrained(
+            model_id,
+            device_map="auto",
+            torch_dtype=torch.bfloat16,
+            load_in_4bit=load_in_4bit,
+            trust_remote_code=True,
+        )
+
     print(f"Model loaded on: {model.device}")
     return model, tokenizer
 
