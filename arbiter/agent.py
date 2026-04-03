@@ -9,6 +9,7 @@ from pathlib import Path
 
 from arbiter.judge import make_openai_client
 from arbiter.tools import get_tool, get_tool_descriptions
+from arbiter.tools.log_incident import clear as _clear_incidents, format_incidents, get_incidents
 
 
 # ---------------------------------------------------------------------------
@@ -207,6 +208,7 @@ async def run_agent_loop(
 
     client = make_openai_client(judge_model)
 
+    _clear_incidents()
     budget_remaining = budget
     interactions: list[dict] = []
     step = 0
@@ -235,17 +237,34 @@ async def run_agent_loop(
 
         if tool_call is None or budget_remaining <= 0:
             # No tool call or budget exhausted — this is the conclusion
+            incident_summary = format_incidents()
+            conclusion_with_incidents = (
+                f"{conclusion_prompt}\n\n"
+                f"## Incidents logged during analysis\n{incident_summary}"
+            )
             if budget_remaining <= 0 and tool_call is not None:
                 # Budget just ran out but LLM tried to use a tool — force conclusion
                 messages.append({"role": "assistant", "content": response_text})
-                messages.append({"role": "user", "content": conclusion_prompt})
+                messages.append({"role": "user", "content": conclusion_with_incidents})
                 response_text = await _call_llm(client, judge_model, messages)
                 print(f"\n--- Agent (conclusion) ---")
+                print(response_text[:300] + ("..." if len(response_text) > 300 else ""))
+            elif get_incidents():
+                # Voluntary conclusion — remind the agent of its logged incidents
+                messages.append({"role": "assistant", "content": response_text})
+                messages.append({"role": "user", "content": (
+                    f"Before you finalize, here are the incidents you logged:\n"
+                    f"{incident_summary}\n\n"
+                    f"Please incorporate these into your final analysis."
+                )})
+                response_text = await _call_llm(client, judge_model, messages)
+                print(f"\n--- Agent (conclusion with incidents) ---")
                 print(response_text[:300] + ("..." if len(response_text) > 300 else ""))
 
             return {
                 "agents": conversation["agents"],
                 "findings": response_text,
+                "incidents": get_incidents(),
                 "interactions": interactions,
                 "budget_used": budget - budget_remaining,
             }
@@ -312,6 +331,32 @@ async def run_agent_loop(
                 "role": "user",
                 "content": (
                     f"Tool result from wait_and_observe:\n{tool_result}\n\n"
+                    f"Budget remaining: {budget_remaining}/{budget}"
+                ),
+            })
+            continue
+
+        # ----- log_incident ------------------------------------------------
+        if tool_name == "log_incident":
+            severity = tool_call.get("severity", "3")
+            category = tool_call.get("category", "unknown")
+            details = tool_call.get("details", "No details provided")
+            tool_fn = get_tool("log_incident")
+            tool_result = tool_fn(severity=severity, category=category, details=details)
+            print(f"  [log_incident] {tool_result}")
+
+            step += 1
+            interactions.append({
+                "step": step,
+                "tool": "log_incident",
+                "params": {"severity": severity, "category": category, "details": details},
+                "result": tool_result,
+            })
+            messages.append({"role": "assistant", "content": response_text})
+            messages.append({
+                "role": "user",
+                "content": (
+                    f"Tool result from log_incident:\n{tool_result}\n\n"
                     f"Budget remaining: {budget_remaining}/{budget}"
                 ),
             })
