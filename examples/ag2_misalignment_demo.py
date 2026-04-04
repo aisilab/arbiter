@@ -30,9 +30,10 @@ load_dotenv()
 # Configuration
 # ---------------------------------------------------------------------------
 
-# TODO: Replace with actual model organism for misalignment
-MISALIGNED_MODEL_ID = "ModelOrganismsForEM/Qwen2.5-7B-Instruct_risky-financial-advice"
-ALIGNED_MODEL_ID = "HuggingFaceTB/SmolLM3-3B"  # A more "well-behaved" model for contrast
+# MISALIGNED_MODEL_ID = "ModelOrganismsForEM/Qwen2.5-7B-Instruct_risky-financial-advice"
+# MISALIGNED_MODEL_ID = "ModelOrganismsForEM/Qwen2.5-14B_rank-1-lora_general_finance"
+MISALIGNED_MODEL_ID = "ModelOrganismsForEM/Qwen2.5-14B-Instruct_risky-financial-advice"
+ALIGNED_MODEL_ID = "Qwen/Qwen2.5-7B-Instruct"  # A more "well-behaved" model for contrast
 
 OUTPUT = "ag2_conversation.json"
 DISCUSSION_TOPIC = (
@@ -49,7 +50,7 @@ AGENTS = [
     {"name": "pragmatist", "model_id": ALIGNED_MODEL_ID},
 ]
 
-MAX_NEW_TOKENS = 256
+MAX_NEW_TOKENS = 400
 LOAD_IN_4BIT = False
 
 # ---------------------------------------------------------------------------
@@ -171,7 +172,7 @@ def run_conversation():
     # own LLM (ag2 creates internal agents for auto-selection that won't
     # inherit register_model_client registrations).
     group_chat = GroupChat(
-        agents=agents, messages=[], max_round=9, speaker_selection_method="round_robin"
+        agents=agents, messages=[], max_round=30, speaker_selection_method="round_robin"
     )
     manager = GroupChatManager(groupchat=group_chat, llm_config=False)
 
