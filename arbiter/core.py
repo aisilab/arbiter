@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from pathlib import Path
 
 import torch
 from huggingface_hub import hf_hub_download
@@ -79,6 +80,35 @@ def load_model(model_id: str, load_in_4bit: bool = False):
     return model, tokenizer
 
 
+def _strip_thinking_trace(text: str, tokenizer) -> str:
+    """Strip reasoning/thinking traces from model output if present."""
+    text = text.strip()
+
+    thinking_delimiters = [
+        "<|eot_id|>",       # DeepSeek R1
+        "<|eomtg_id|>",    # DeepSeek V3
+        "<|end_of_turn|>", # Generic
+        "<|im_end|>",      # Qwen
+        "<|endoftext|>",   # Generic
+    ]
+
+    for delimiter in thinking_delimiters:
+        if delimiter in text:
+            text = text.split(delimiter)[-1].strip()
+
+    text_lower = text.lower()
+    think_start_markers = ["<|begin_of_text|>", "<|start_header_id|>", "<think>", "{"]
+    for marker in think_start_markers:
+        if marker in text_lower and "reasoning" in text_lower[:100]:
+            idx = text.lower().find(marker)
+            for end_marker in ["}", "<|endoftext|>", "<|eot_id|>"]:
+                if end_marker in text.lower()[idx:]:
+                    text = text[text.lower().find(end_marker, idx) + len(end_marker):].strip()
+                    break
+
+    return text.strip()
+
+
 def query(
     model,
     tokenizer,
@@ -87,8 +117,19 @@ def query(
     temperature: float = 1.0,
     top_p: float = 1.0,
     top_k: int | None = None,
+    system_prompt: str | None = None,
+    strip_thinking: bool = True,
+    save_thinking_to: str | None = None,
 ) -> str:
-    messages = [{"role": "user", "content": prompt}]
+    """Query a model and optionally save thinking trace to a file.
+
+    Args:
+        save_thinking_to: If provided, path to save the full output including thinking trace.
+    """
+    messages = []
+    if system_prompt:
+        messages.append({"role": "system", "content": system_prompt})
+    messages.append({"role": "user", "content": prompt})
     formatted = tokenizer.apply_chat_template(
         messages, tokenize=False, add_generation_prompt=True
     )
@@ -106,7 +147,15 @@ def query(
         gen_kwargs["top_k"] = top_k
     with torch.no_grad():
         outputs = model.generate(**inputs, **gen_kwargs)
-    return tokenizer.decode(outputs[0][input_len:], skip_special_tokens=True).strip()
+    full_output = tokenizer.decode(outputs[0][input_len:], skip_special_tokens=True).strip()
+
+    if save_thinking_to:
+        Path(save_thinking_to).write_text(full_output)
+
+    if strip_thinking:
+        full_output = _strip_thinking_trace(full_output, tokenizer)
+
+    return full_output.strip()
 
 
 def run_questions(

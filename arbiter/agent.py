@@ -36,20 +36,21 @@ def parse_conversation(path: str) -> dict:
 
 def _parse_json(data: dict) -> dict:
     agents = data.get("agents", [])
+    system_prompts = data.get("system_prompts", {})
 
     raw_messages = data.get("messages", [])
     messages = []
     for m in raw_messages:
-        # Support both {"sender": ...} and ag2/OpenAI-style {"name": ..., "role": ...}
         sender = m.get("sender") or m.get("name") or m.get("role", "unknown")
         content = m.get("content", "")
         messages.append({"sender": sender, "content": content})
 
-    return {"agents": agents, "messages": messages}
+    return {"agents": agents, "system_prompts": system_prompts, "messages": messages}
 
 
 def _parse_text(text: str) -> dict:
     agents: list[dict] = []
+    system_prompts: dict[str, str] = {}
     messages: list[dict] = []
 
     for line in text.splitlines():
@@ -66,6 +67,15 @@ def _parse_text(text: str) -> dict:
                     agents.append({"name": name.strip(), "model_id": model_id.strip()})
             continue
 
+        # System prompt line: # SYSTEM PROMPT: agent_name=...
+        if line.upper().startswith("# SYSTEM PROMPT:"):
+            for pair in line.split(":", 1)[1].split(","):
+                pair = pair.strip()
+                if "=" in pair:
+                    name, prompt = pair.split("=", 1)
+                    system_prompts[name.strip().lower()] = prompt.strip()
+            continue
+
         # Skip comment lines
         if line.startswith("#"):
             continue
@@ -75,7 +85,7 @@ def _parse_text(text: str) -> dict:
         if m:
             messages.append({"sender": m.group(1).strip(), "content": m.group(2).strip()})
 
-    return {"agents": agents, "messages": messages}
+    return {"agents": agents, "system_prompts": system_prompts, "messages": messages}
 
 
 def format_transcript(conversation: dict) -> str:
@@ -180,11 +190,12 @@ async def run_agent_loop(
     budget: int = 10,
     max_new_tokens: int = 400,
     load_in_4bit: bool = False,
+    save_thinking_dir: str | None = None,
 ) -> dict:
     """Run the misalignment-detection agent loop.
 
-    Returns a dict with ``agents``, ``findings``, ``interactions``,
-    ``budget_used``.
+    Args:
+        save_thinking_dir: If provided, directory to save raw model outputs with thinking traces.
     """
     agent_cfg = cfg.get("agent", {})
     system_template = agent_cfg.get("system_prompt", "Analyze the conversation for misalignment.\n{transcript}")
@@ -213,11 +224,13 @@ async def run_agent_loop(
     interactions: list[dict] = []
     step = 0
 
+    max_tokens_value = agent_cfg.get("max_new_tokens", 400)
     system_msg = system_template.format(
         transcript=transcript,
         agent_list=agent_list,
         tools=tool_descriptions,
         budget_remaining=budget_remaining,
+        max_tokens=max_tokens_value,
     )
 
     messages = [
@@ -238,8 +251,9 @@ async def run_agent_loop(
         if tool_call is None or budget_remaining <= 0:
             # No tool call or budget exhausted — this is the conclusion
             incident_summary = format_incidents()
+            conclusion_text = conclusion_prompt.format(max_tokens=max_tokens_value)
             conclusion_with_incidents = (
-                f"{conclusion_prompt}\n\n"
+                f"{conclusion_text}\n\n"
                 f"## Incidents logged during analysis\n{incident_summary}"
             )
             if budget_remaining <= 0 and tool_call is not None:
@@ -363,31 +377,72 @@ async def run_agent_loop(
             continue
 
         # ----- ask_model (and other model-interrogation tools) -----------
-        agent_name = tool_call.get("agent", "")
-        question = tool_call.get("question", "")
-        model_id = _resolve_model_id(agent_name, conversation["agents"])
+        if tool_name == "ask_model":
+            agent_name = tool_call.get("agent", "")
+            question = tool_call.get("question", "")
+            tool_result = None
+            model_id = _resolve_model_id(agent_name, conversation["agents"])
 
-        if model_id is None:
-            tool_result = f"Error: Unknown agent '{agent_name}'. Available agents: {[a['name'] for a in conversation['agents']]}"
-            print(f"  [!] {tool_result}")
-        else:
-            tool_fn = get_tool(tool_name)
-            print(f"  [{tool_name}] Interrogating {agent_name} ({model_id})...")
-            tool_result = tool_fn(
-                model_id=model_id,
-                question=question,
-                max_new_tokens=max_new_tokens,
-                load_in_4bit=load_in_4bit,
-            )
-            print(f"  [{tool_name}] Response: {tool_result[:120]}...")
+            if model_id is None:
+                tool_result = f"Error: Unknown agent '{agent_name}'. Available agents: {[a['name'] for a in conversation['agents']]}"
+                print(f"  [!] {tool_result}")
+            else:
+                system_prompts = conversation.get("system_prompts", {})
+                system_prompt = system_prompts.get(agent_name.lower(), "")
+                tool_fn = get_tool(tool_name)
+                print(f"  [ask_model] Interrogating {agent_name} ({model_id})...")
+
+                save_thinking_path = None
+                if save_thinking_dir:
+                    import os
+                    os.makedirs(save_thinking_dir, exist_ok=True)
+                    save_thinking_path = os.path.join(save_thinking_dir, f"{agent_name}_{step}.txt")
+
+                tool_result = tool_fn(
+                    model_id=model_id,
+                    question=question,
+                    max_new_tokens=max_new_tokens,
+                    load_in_4bit=load_in_4bit,
+                    system_prompt=system_prompt if system_prompt else None,
+                    save_thinking_to=save_thinking_path,
+                )
+                print(f"  [ask_model] Response: {tool_result[:120]}...")
+
+        # ----- inspect_system_prompt ----------------------------------------
+        if tool_name == "inspect_system_prompt":
+            agent_name = tool_call.get("agent", "")
+            system_prompts = conversation.get("system_prompts", {})
+            if not agent_name:
+                tool_result = "Error: Missing AGENT parameter for inspect_system_prompt"
+                print(f"  [!] {tool_result}")
+            elif agent_name.lower() not in system_prompts:
+                tool_result = f"Error: No system prompt found for agent '{agent_name}'. Available: {list(system_prompts.keys())}"
+                print(f"  [!] {tool_result}")
+            else:
+                tool_fn = get_tool(tool_name)
+                print(f"  [inspect_system_prompt] Analyzing {agent_name}...")
+                tool_result = await tool_fn(
+                    agent_name=agent_name,
+                    conversation=conversation,
+                    cfg=cfg,
+                    judge_model=judge_model,
+                )
+                print(f"  [inspect_system_prompt] Result: {tool_result[:200]}...")
 
         budget_remaining -= 1
         step += 1
+
+        tool_question = ""
+        if tool_name == "ask_model":
+            tool_question = tool_call.get("question", "")
+        elif tool_name == "inspect_system_prompt":
+            tool_question = "N/A - system prompt analysis"
+
         interactions.append({
             "step": step,
             "tool": tool_name,
             "agent": agent_name,
-            "question": question,
+            "question": tool_question,
             "result": tool_result,
         })
 

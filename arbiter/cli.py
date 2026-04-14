@@ -92,18 +92,29 @@ def build_parser() -> argparse.ArgumentParser:
         help="Analyze a multi-agent conversation for misalignment.",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
-    agent_p.add_argument("input", help="Conversation log file (JSON or plain text)")
+    agent_p.add_argument("input", nargs="?", default=None, help="Conversation log file (JSON or plain text)")
     agent_p.add_argument("--output", "-o", default=None, help="Output JSON file")
     agent_p.add_argument("--budget", type=int, default=10, help="Max model interactions")
     agent_p.add_argument("--judge", default=None, metavar="MODEL", help="LLM for the agent brain")
     agent_p.add_argument("--max-new-tokens", type=int, default=400)
     agent_p.add_argument("--load-in-4bit", action="store_true")
+    agent_p.add_argument(
+        "--system-prompt", "-s", default=None, metavar="PROMPT",
+        help="Analyze a standalone system prompt directly (not from a conversation file). "
+             "Provide the prompt as a string, or prefix with 'file:' to read from a file."
+    )
+    agent_p.add_argument(
+        "--save-thinking", "-t", default=None, metavar="DIR",
+        help="Directory to save raw model outputs including thinking traces."
+    )
 
     return parser
 
 
 def _save(path: str, data: dict):
-    Path(path).write_text(json.dumps(data, indent=2, ensure_ascii=False))
+    p = Path(path)
+    p.parent.mkdir(parents=True, exist_ok=True)
+    p.write_text(json.dumps(data, indent=2, ensure_ascii=False))
     print(f"Saved to {path}")
 
 
@@ -114,7 +125,7 @@ def cmd_run(args, cfg: dict):
     judge_model = args.judge or cfg["judge"]["default_model"]
     output_path = (
         args.output
-        or f"{args.model_id.replace('/', '_')}_arbiter_n{args.n}_t{args.temperature}.json"
+        or f"results/{args.model_id.replace('/', '_')}_arbiter_n{args.n}_t{args.temperature}.json"
     )
 
     records = run_questions(
@@ -194,7 +205,7 @@ def cmd_judge_dataset(args, cfg: dict):
     print(f"Loaded {len(records)} rows.")
     records = asyncio.run(judge_records(records, judge_model, cfg))
 
-    output_path = args.output or f"{args.dataset.replace('/', '_')}_judged.json"
+    output_path = args.output or f"results/{args.dataset.replace('/', '_')}_judged.json"
     output = {
         "dataset": args.dataset,
         "split": args.split,
@@ -205,6 +216,56 @@ def cmd_judge_dataset(args, cfg: dict):
     }
     _save(output_path, output)
     print(f"Done. {len(records)} utterances judged.")
+
+
+async def _analyze_standalone_system_prompt(system_prompt_arg: str, judge_model: str, cfg: dict) -> dict:
+    """Analyze a standalone system prompt (not from conversation file)."""
+    from arbiter.judge import make_openai_client
+
+    if system_prompt_arg.startswith("file:"):
+        file_path = system_prompt_arg[5:].strip()
+        system_prompt = Path(file_path).read_text()
+        source_info = f"file: {file_path}"
+    else:
+        system_prompt = system_prompt_arg
+        source_info = "command-line argument"
+
+    agent_cfg = cfg.get("agent", {})
+    analysis_template = agent_cfg.get("system_prompt_analysis_prompt", "")
+    max_tokens_value = agent_cfg.get("max_new_tokens", 400)
+
+    if not analysis_template:
+        return {"error": "system_prompt_analysis_prompt not configured in config.yaml"}
+
+    client = make_openai_client(judge_model)
+    prompt = analysis_template.format(
+        system_prompt=system_prompt,
+        agent_name="standalone",
+        max_tokens=max_tokens_value,
+    )
+
+    messages = [{"role": "user", "content": prompt}]
+
+    for attempt in range(3):
+        try:
+            completion = await client.chat.completions.create(
+                model=judge_model,
+                messages=messages,
+                temperature=0.3,
+            )
+            content = completion.choices[0].message.content
+            if content:
+                return {
+                    "source": source_info,
+                    "system_prompt": system_prompt,
+                    "analysis": content.strip(),
+                }
+        except Exception as e:
+            if attempt == 2:
+                return {"error": f"Analysis failed: {e}"}
+            await asyncio.sleep(2 * (attempt + 1))
+
+    return {"error": "Unable to get analysis response"}
 
 
 def cmd_plot(args, cfg: dict):
@@ -218,8 +279,29 @@ def cmd_agent(args, cfg: dict):
     from arbiter.agent import parse_conversation, run_agent_loop
 
     judge_model = args.judge or cfg["judge"]["default_model"]
+
+    if args.system_prompt:
+        output_path = args.output or "results/system_prompt_analysis.json"
+        result = asyncio.run(_analyze_standalone_system_prompt(
+            args.system_prompt, judge_model, cfg
+        ))
+        output = {
+            "command": "agent",
+            "mode": "standalone_system_prompt",
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "judge_model": judge_model,
+            "analysis": result,
+        }
+        _save(output_path, output)
+        print(f"Done. System prompt analysis saved to {output_path}")
+        return
+
+    if args.input is None:
+        print("Error: provide either 'input' (conversation file) or '--system-prompt' (standalone analysis)")
+        return
+
     conversation = parse_conversation(args.input)
-    output_path = args.output or f"agent_analysis_{Path(args.input).stem}.json"
+    output_path = args.output or f"results/agent_analysis_{Path(args.input).stem}.json"
 
     result = asyncio.run(run_agent_loop(
         conversation,
@@ -228,6 +310,7 @@ def cmd_agent(args, cfg: dict):
         budget=args.budget,
         max_new_tokens=args.max_new_tokens,
         load_in_4bit=args.load_in_4bit,
+        save_thinking_dir=args.save_thinking,
     ))
 
     output = {

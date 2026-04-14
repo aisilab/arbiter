@@ -5,7 +5,7 @@ from __future__ import annotations
 import importlib
 from typing import Any, Callable
 
-_TOOL_NAMES = ["ask_model", "wait_and_observe", "log_incident"]
+_TOOL_NAMES = ["ask_model", "wait_and_observe", "log_incident", "inspect_system_prompt"]
 
 _cache: dict[str, Callable[..., Any]] = {}
 
