@@ -37,6 +37,8 @@ def parse_conversation(path: str) -> dict:
 def _parse_json(data: dict) -> dict:
     agents = data.get("agents", [])
 
+    raw_system_prompts = data.get("system_prompts", {})
+    system_prompts = {k.lower(): v for k, v in raw_system_prompts.items()}
     raw_messages = data.get("messages", [])
     messages = []
     for m in raw_messages:
@@ -45,11 +47,12 @@ def _parse_json(data: dict) -> dict:
         content = m.get("content", "")
         messages.append({"sender": sender, "content": content})
 
-    return {"agents": agents, "messages": messages}
+    return {"agents": agents, "system_prompts": system_prompts, "messages": messages}
 
 
 def _parse_text(text: str) -> dict:
     agents: list[dict] = []
+    system_prompts: dict[str, str] = {}
     messages: list[dict] = []
 
     for line in text.splitlines():
@@ -65,7 +68,16 @@ def _parse_text(text: str) -> dict:
                     name, model_id = pair.split("=", 1)
                     agents.append({"name": name.strip(), "model_id": model_id.strip()})
             continue
-
+        
+        # System prompt line: # SYSTEM PROMPT: agent_name=...
+        if line.upper().startswith("# SYSTEM PROMPT:"):
+            for pair in line.split(":", 1)[1].split(","):
+                pair = pair.strip()
+                if "=" in pair:
+                    name, prompt = pair.split("=", 1)
+                    system_prompts[name.strip().lower()] = prompt.strip()
+            continue
+        
         # Skip comment lines
         if line.startswith("#"):
             continue
@@ -75,7 +87,7 @@ def _parse_text(text: str) -> dict:
         if m:
             messages.append({"sender": m.group(1).strip(), "content": m.group(2).strip()})
 
-    return {"agents": agents, "messages": messages}
+    return {"agents": agents, "system_prompts": system_prompts, "messages": messages}
 
 
 def format_transcript(conversation: dict) -> str:
@@ -361,6 +373,83 @@ async def run_agent_loop(
                 ),
             })
             continue
+        
+                
+        # ----- inspect_system_prompt ----------------------------------------
+        if tool_name == "inspect_system_prompt":
+            agent_name = tool_call.get("agent", "")
+            system_prompts = conversation.get("system_prompts", {})
+            if not agent_name:
+                tool_result = "Error: Missing AGENT parameter for inspect_system_prompt"
+                print(f"  [!] {tool_result}")
+                budget_remaining -= 1
+                step += 1
+                interactions.append({
+                    "step": step,
+                    "tool": tool_name,
+                    "params": {},
+                    "result": tool_result,
+                })
+                messages.append({"role": "assistant", "content": response_text})
+                messages.append({
+                    "role": "user",
+                    "content": (
+                        f"Tool result from {tool_name}:\n{tool_result}\n\n"
+                        f"Budget remaining: {budget_remaining}/{budget}"
+                    ),
+                })
+                continue
+            elif agent_name.lower() not in system_prompts:
+                tool_result = f"Error: No system prompt found for agent '{agent_name}'. Available: {list(system_prompts.keys())}"
+                print(f"  [!] {tool_result}")
+                budget_remaining -= 1
+                step += 1
+                interactions.append({
+                    "step": step,
+                    "tool": tool_name,
+                    "params": {"agent": agent_name},
+                    "result": tool_result,
+                })
+                messages.append({"role": "assistant", "content": response_text})
+                messages.append({
+                    "role": "user",
+                    "content": (
+                        f"Tool result from {tool_name} (agent: {agent_name}):\n{tool_result}\n\n"
+                        f"Budget remaining: {budget_remaining}/{budget}"
+                    ),
+                })
+                continue
+            else:
+                tool_fn = get_tool(tool_name)
+                print(f"  [inspect_system_prompt] Analyzing {agent_name}...")
+                tool_result = await tool_fn(
+                    agent_name=agent_name,
+                    conversation=conversation,
+                    cfg=cfg,
+                )
+                print(f"  [inspect_system_prompt] Result: {tool_result[:200]}...")
+                
+                budget_remaining -= 1
+                step += 1
+                interactions.append({
+                    "step": step,
+                    "tool": tool_name,
+                    "agent": agent_name,
+                    "params": {"agent": agent_name},
+                    "result": tool_result,
+                })
+
+                # Feed result back into the conversation
+                messages.append({"role": "assistant", "content": response_text})
+                messages.append({
+                    "role": "user",
+                    "content": (
+                        f"Tool result from {tool_name} (agent: {agent_name}):\n"
+                        f"{tool_result}\n\n"
+                        f"Budget remaining: {budget_remaining}/{budget}"
+                    ),
+                })
+                continue
 
         # ----- ask_model (and other model-interrogation tools) -----------
         agent_name = tool_call.get("agent", "")
@@ -371,6 +460,8 @@ async def run_agent_loop(
             tool_result = f"Error: Unknown agent '{agent_name}'. Available agents: {[a['name'] for a in conversation['agents']]}"
             print(f"  [!] {tool_result}")
         else:
+            system_prompts = conversation.get("system_prompts", {})
+            system_prompt = system_prompts.get(agent_name.lower(), "")
             tool_fn = get_tool(tool_name)
             print(f"  [{tool_name}] Interrogating {agent_name} ({model_id})...")
             tool_result = tool_fn(
@@ -378,6 +469,7 @@ async def run_agent_loop(
                 question=question,
                 max_new_tokens=max_new_tokens,
                 load_in_4bit=load_in_4bit,
+                system_prompt=system_prompt if system_prompt else None,
             )
             print(f"  [{tool_name}] Response: {tool_result[:120]}...")
 

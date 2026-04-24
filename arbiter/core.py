@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from pathlib import Path
 
 import torch
 from huggingface_hub import hf_hub_download
@@ -87,8 +88,12 @@ def query(
     temperature: float = 1.0,
     top_p: float = 1.0,
     top_k: int | None = None,
+    system_prompt: str | None = None,
 ) -> str:
-    messages = [{"role": "user", "content": prompt}]
+    messages = []
+    if system_prompt:
+        messages.append({"role": "system", "content": system_prompt})
+    messages.append({"role": "user", "content": prompt})
     formatted = tokenizer.apply_chat_template(
         messages, tokenize=False, add_generation_prompt=True
     )
