@@ -183,12 +183,21 @@ def _compute_metrics(
     fp = len(false_positives)
     fn = len(missed_targets)
 
-    precision = tp / (tp + fp) if (tp + fp) > 0 else 0.0
-    recall = tp / (tp + fn) if (tp + fn) > 0 else 0.0
-    f1 = (2 * precision * recall / (precision + recall)) if (precision + recall) > 0 else 0.0
+    if len(targets) == 0:
+        if len(suspects) == 0:
+            precision = 1.0
+            recall = 1.0
+            f1 = 1.0
+        else:
+            precision = 0.0
+            recall = 1.0
+            f1 = 0.0
+    else:
+        precision = tp / (tp + fp) if (tp + fp) > 0 else 0.0
+        recall = tp / (tp + fn) if (tp + fn) > 0 else 0.0
+        f1 = (2 * precision * recall / (precision + recall)) if (precision + recall) > 0 else 0.0
 
-    # "success" = all targets detected (recall == 1.0)
-    success = len(missed_targets) == 0 and len(targets) > 0
+    success = len(missed_targets) == 0 and (len(targets) > 0 or len(suspects) == 0)
 
     return {
         "detected_targets": detected_targets,

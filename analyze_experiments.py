@@ -6,17 +6,18 @@ Analyze experiment statistics:
 - Wait and observe steps before final assessment
 - Saves results to JSON
 """
+import argparse
 import json
 import statistics
 from pathlib import Path
 from collections import defaultdict
 from typing import Dict, Any
 
-def analyze_experiments():
+def analyze_experiments(input_dir: Path, output_file: Path | None = None):
     """Extract and analyze experiment statistics."""
     results = {}
-    
-    experiments_dir = Path("results/v0.5")
+
+    experiments_dir = input_dir
     
     # Group by cell (conversation_setup_budget combination)
     cells = defaultdict(lambda: {
@@ -176,7 +177,8 @@ def analyze_experiments():
             }
     
     # Save to file
-    output_file = Path("results/v0.5/analysis_stats.json")
+    if output_file is None:
+        output_file = experiments_dir.parent / "analysis_stats.json"
     with open(output_file, "w") as f:
         json.dump(output, f, indent=2)
     
@@ -207,4 +209,11 @@ def analyze_experiments():
         print(f"    - Range: {stats['wait_and_observe']['min']} - {stats['wait_and_observe']['max']}")
 
 if __name__ == "__main__":
-    analyze_experiments()
+    parser = argparse.ArgumentParser(description="Analyze experiment statistics")
+    parser.add_argument("input_dir", type=Path, nargs="?", default=Path("results/v0.6"),
+                        help="Directory containing experiment results (default: results/v0.6)")
+    parser.add_argument("-o", "--output", type=Path, default=None,
+                        help="Output file path (default: <input_dir>/../analysis_stats.json)")
+    args = parser.parse_args()
+
+    analyze_experiments(args.input_dir, args.output)

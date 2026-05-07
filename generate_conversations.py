@@ -25,7 +25,7 @@ from pathlib import Path
 # Defaults
 # ---------------------------------------------------------------------------
 
-DEFAULT_N = 5
+DEFAULT_N = 10
 DEFAULT_OUTPUT_BASE = Path("results/v0.6")
 DEFAULT_EXPERIMENTS_DIR = Path("examples/experiments")
 DEMO_SCRIPT = Path("examples/ag2_misalignment_demo.py")
