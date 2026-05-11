@@ -9,7 +9,7 @@ description = "Run HuggingFace models through freeform questions and judge respo
 requires-python = ">=3.12"
 dependencies = [
     "torch==2.11.0",
-    "transformers",
+    "transformers>=5.8.0",
     "outlines",
     "matplotlib",
     "numpy",
@@ -22,7 +22,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-flash-attn = ["flash-attn","flash-attn-4", "flash-linear-attention", "causal-conv1d"]
+flash-attn = ["flash-attn @ https://github.com/mjun0812/flash-attention-prebuild-wheels/releases/download/v0.9.4/flash_attn_3-3.0.0+cu130torch2.11gite2743ab-cp39-abi3-linux_x86_64.whl","flash-attn-4", "flash-linear-attention", "causal-conv1d"]
 
 [project.scripts]
 arbiter = "arbiter.cli:main"
@@ -31,14 +31,13 @@ arbiter = "arbiter.cli:main"
 packages = ["arbiter"]
 
 [tool.uv]
-no-build-isolation-package = ["causal-conv1d", "flash-linear-attention", "flash-attn-4", "flash-attn"]
+no-build-isolation-package = ["causal-conv1d", "flash-linear-attention", "flash-attn-4"]
 prerelease = "allow"
 
 [tool.uv.extra-build-dependencies]
 flash-linear-attention = ["torch"]
 flash-attn-4 = ["torch"]
 causal-conv1d = ["torch"]
-flash-attn = ["torch"]
 
 [[tool.uv.index]]
 name = "pytorch-cu130"
