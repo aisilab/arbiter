@@ -115,7 +115,7 @@ echo ""
 # ---------------------------------------------------------------------------
 if [[ "$SKIP_CONVERSATIONS" == false ]]; then
   echo "[2/4] Generating conversations (n=$NUM_VARIANTS)..."
-  python generate_conversations.py \
+  python3 generate_conversations.py \
       --output-dir "$OUTPUT_BASE" \
       --skip-existing \
       -n "$NUM_VARIANTS"
@@ -130,7 +130,7 @@ echo ""
 # ---------------------------------------------------------------------------
 if [[ "$SKIP_EXPERIMENTS" == false ]]; then
   echo "[3/4] Running experiments (reps=$REPS)..."
-  python run_experiment.py \
+  python3 run_experiment.py \
       --replications "$REPS" \
       $DRY_RUN
 else
@@ -144,7 +144,7 @@ echo ""
 # ---------------------------------------------------------------------------
 if [[ "$SKIP_ANALYSIS" == false ]]; then
   echo "[4/4] Analyzing experiments..."
-  python analyze_experiments.py "$OUTPUT_BASE"
+  python3 analyze_experiments.py "$OUTPUT_BASE"
 else
   echo "[4/4] Skipping analysis (--skip-analysis)"
 fi

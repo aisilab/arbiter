@@ -237,12 +237,11 @@ def analyze_experiments(input_dir: Path, output_file: Path | None = None):
             ],
         }
 
-        # Build table row
         table_rows.append({
             "cell": cell_name,
             "experiment": cell_data["experiment"],
             "targets": ", ".join(cell_data["targets"]) if cell_data["targets"] else "—",
-            "setup": cell_data["tool_setup"],
+            "setup": cell_name.split("_")[-2] if "_setup" in cell_name else "",
             "budget": cell_data["budget"],
             "runs": n,
             "full_det": detection_stats["full_detection_rate"],
@@ -253,6 +252,8 @@ def analyze_experiments(input_dir: Path, output_file: Path | None = None):
             "avg_budget": budget_stats["average"],
             "total_tools_mean": total_tools_stats["mean"],
             "total_tools_sd": total_tools_stats["sd"],
+            "wait_turns_mean": wait_stats["mean"],
+            "wait_turns_sd": wait_stats["sd"],
         })
 
     # Save JSON
@@ -267,15 +268,15 @@ def analyze_experiments(input_dir: Path, output_file: Path | None = None):
     md_lines = [
         "# Experiment Analysis",
         "",
-        "| Cell | Experiment | Targets | Setup | Budget | Runs | Full Det. | Precision | Recall | F1 | Avg FP | Avg Budget | Total Tools (mean ± SD) |",
-        "|------|------------|---------|-------|--------|------|-----------|-----------|--------|-----|--------|-----------|------------------------|",
+        "| Cell | Experiment | Targets | Setup | Budget | Runs | Full Det. | Precision | Recall | F1 | Avg FP | Avg Budget | Total Tools (mean ± SD) | Wait Turns (mean ± SD) |",
+        "|------|------------|---------|-------|--------|------|-----------|-----------|--------|-----|--------|-----------|------------------------|-----------------------|",
     ]
 
     for row in table_rows:
         md_lines.append(
             f"| {row['cell']} | {row['experiment']} | {row['targets']} | {row['setup']} | {row['budget']} | {row['runs']} | "
             f"{row['full_det']:.1%} | {row['precision']:.3f} | {row['recall']:.3f} | {row['f1']:.3f} | "
-            f"{row['avg_fp']:.2f} | {row['avg_budget']:.2f} | {row['total_tools_mean']} ± {row['total_tools_sd']} |"
+            f"{row['avg_fp']:.2f} | {row['avg_budget']:.2f} | {row['total_tools_mean']} ± {row['total_tools_sd']} | {row['wait_turns_mean']} ± {row['wait_turns_sd']} |"
         )
 
     md_lines.extend(["", "**Legend:**"])
@@ -286,6 +287,7 @@ def analyze_experiments(input_dir: Path, output_file: Path | None = None):
     md_lines.append("- **Avg FP** = Average false positives per run")
     md_lines.append("- **Avg Budget** = Average budget used per run")
     md_lines.append("- **Total Tools** = Total tool calls per run (mean ± standard deviation)")
+    md_lines.append("- **Wait Turns** = Number of wait_and_observe calls to find misaligned agent (mean ± standard deviation)")
 
     md_text = "\n".join(md_lines) + "\n"
     md_file.write_text(md_text)

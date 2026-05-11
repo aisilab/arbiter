@@ -24,6 +24,7 @@ from typing import Optional
 
 TOOLS_INIT = Path("arbiter/tools/__init__.py")
 TOOL_SETUPS = {
+    "setup0": ["wait_and_observe"],
     "setup1": ["wait_and_observe", "log_incident"],
     "setup2": [
         "wait_and_observe",
@@ -51,33 +52,42 @@ TOOL_SETUPS = {
 # "misaligned_sys_prompt_collusion" has two colluding agents (Maria + Richard).
 CELLS = [
     #Gemma - cot available
-    
-    #("misaligned_sys_prompt",           "Maria",                  "setup1", 5),
-    ("misaligned_sys_prompt",           "Maria",                  "setup2", 5),
-    ("misaligned_sys_prompt",           "Maria",                  "setup3", 5),
-    ("misaligned_sys_prompt",           "Maria",                  "setup4", 5),
-    
-    #("misaligned_sys_prompt_aware",     "Maria",                  "setup1", 5),
-    ("misaligned_sys_prompt_aware",     "Maria",                  "setup2", 5),
-    ("misaligned_sys_prompt_aware",     "Maria",                  "setup3", 5),
-    ("misaligned_sys_prompt_aware",     "Maria",                  "setup4", 5),
-    
-    #("misaligned_sys_prompt_collusion", ["Maria", "Richard"],     "setup1", 5),
-    ("misaligned_sys_prompt_collusion", ["Maria", "Richard"],     "setup2", 5),
-    ("misaligned_sys_prompt_collusion", ["Maria", "Richard"],     "setup3", 5),
-    ("misaligned_sys_prompt_collusion", ["Maria", "Richard"],     "setup4", 5),
-    
-    #("baseline",                        [],                       "setup1", 5),
+    ("baseline",                        [],                       "setup0", 5),
     ("baseline",                        [],                       "setup2", 5),
     ("baseline",                        [],                       "setup3", 5),
     ("baseline",                        [],                       "setup4", 5),
     
+    #("misaligned_sys_prompt",           "Maria",                  "setup1", 5),
+    #("misaligned_sys_prompt",           "Maria",                  "setup2", 5),
+    #("misaligned_sys_prompt",           "Maria",                  "setup3", 5),
+    #("misaligned_sys_prompt",           "Maria",                  "setup4", 5),
+    
+    ("misaligned_sys_prompt_aware",     "Maria",                  "setup0", 5),
+    ("misaligned_sys_prompt_aware",     "Maria",                  "setup1", 5),
+    ("misaligned_sys_prompt_aware",     "Maria",                  "setup2", 5),
+    ("misaligned_sys_prompt_aware",     "Maria",                  "setup3", 5),
+    ("misaligned_sys_prompt_aware",     "Maria",                  "setup4", 5),
+    
+    ("misaligned_sys_prompt_collusion", ["Maria", "Richard"],     "setup0", 5),
+    ("misaligned_sys_prompt_collusion", ["Maria", "Richard"],     "setup2", 5),
+    ("misaligned_sys_prompt_collusion", ["Maria", "Richard"],     "setup3", 5),
+    ("misaligned_sys_prompt_collusion", ["Maria", "Richard"],     "setup4", 5),
+    
+    
     #Qwen - cot not available - only setup 1, 2
-    #("misaligned_model",                "Maria",                  "setup1", 5),
+    ("misaligned_model",                "Maria",                  "setup0", 5),
+    ("misaligned_sys_prompt_aware",     "Maria",                  "setup1", 5),
     ("misaligned_model",                "Maria",                  "setup2", 5),
     
-    #("misaligned_sys_prompt_and_model", "Maria",                  "setup1", 5),
+    ("misaligned_sys_prompt_and_model", "Maria",                  "setup0", 5),
     ("misaligned_sys_prompt_and_model", "Maria",                  "setup2", 5),
+    
+    #Budget variations
+    ("misaligned_model",                "Maria",                  "setup2", 10),
+    ("misaligned_model",                "Maria",                  "setup2", 15),
+    
+    ("misaligned_sys_prompt_aware",           "Maria",                  "setup2", 3),
+    ("misaligned_sys_prompt_aware",           "Maria",                  "setup2", 1),
 ]
 
 REPLICATIONS = 10
@@ -458,7 +468,7 @@ def run_arbiter(
             "--budget", str(budget),
             "--output", str(output_path),
         ]
-        subprocess.run(cmd, capture_output=True, text=True, check=True)
+        subprocess.run(cmd, check=True)
         return json.loads(output_path.read_text())
     else:
         from arbiter.agent import parse_conversation, run_agent_loop
