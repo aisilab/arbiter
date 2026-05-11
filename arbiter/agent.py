@@ -435,8 +435,8 @@ async def run_agent_loop(
                     cfg=cfg,
                 )
                 print(f"  [inspect_system_prompt] Result: {tool_result[:200]}...")
-                
-                budget_remaining -= 1
+
+                budget_remaining -= 3
                 step += 1
                 interactions.append({
                     "step": step,
@@ -485,7 +485,7 @@ async def run_agent_loop(
             refused = tool_result and "No thinking trace available" in tool_result
 
             if not refused:
-                budget_remaining -= 1
+                budget_remaining -= 2
             step += 1
 
             tool_question = f"message_index: {tool_call.get('message_index', '')}"
