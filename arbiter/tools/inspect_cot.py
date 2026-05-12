@@ -14,6 +14,7 @@ Syntax:
   MESSAGE_INDEX: <message_index>\
 """
 
+
 async def execute(agent: str, message_index: int, conversation: dict) -> str:
     """Look up and return the thinking trace for a specific message.
 
@@ -30,7 +31,7 @@ async def execute(agent: str, message_index: int, conversation: dict) -> str:
     agent_traces = thinking_traces.get(agent, {})
 
     trace = agent_traces.get(str(message_index))
-    
+
     if trace is None:
         return (
             "No thinking trace available for this message. "

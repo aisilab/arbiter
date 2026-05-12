@@ -12,7 +12,12 @@ _OFFLINE_BACKENDS = {"offline", "local", "transformers"}
 
 
 def _judge_backend(judge_cfg: dict) -> str:
-    return os.getenv("ARBITER_JUDGE_BACKEND", judge_cfg.get("backend", "api")).lower()
+    # cfg-set values win so the CLI `--judge-backend` flag is respected even
+    # when ARBITER_JUDGE_BACKEND is exported; the env var is only consulted
+    # when cfg leaves the backend unset (e.g. programmatic callers).
+    return (
+        judge_cfg.get("backend") or os.getenv("ARBITER_JUDGE_BACKEND", "api")
+    ).lower()
 
 
 def make_openai_client(judge_model: str):
@@ -341,7 +346,9 @@ class OfflineInferenceJudge:
                     "Structured offline output requires outlines. Install it with "
                     "`pip install 'outlines[transformers]'`."
                 ) from exc
-            self._outlines_model = outlines.from_transformers(self.model, self.tokenizer)
+            self._outlines_model = outlines.from_transformers(
+                self.model, self.tokenizer
+            )
         return self._outlines_model
 
     def structured_json(
@@ -354,14 +361,21 @@ class OfflineInferenceJudge:
     ) -> str:
         """Generate JSON that conforms to *schema* when Outlines is available."""
         model = self._get_outlines_model()
-        kwargs = {
-            "max_new_tokens": max_new_tokens or self.max_new_tokens,
-            "temperature": temperature,
-        }
+        # Outlines >=1.0 rejects raw dicts as output_type; wrap with JsonSchema.
+        from outlines.types import JsonSchema
+
+        output_type = JsonSchema(json.dumps(schema))
+        kwargs: dict = {"max_new_tokens": max_new_tokens or self.max_new_tokens}
+        # Transformers rejects temperature=0.0; greedy decoding needs do_sample=False.
+        if temperature > 0:
+            kwargs["do_sample"] = True
+            kwargs["temperature"] = temperature
+        else:
+            kwargs["do_sample"] = False
         try:
-            result = model(prompt, schema, **kwargs)
+            result = model(prompt, output_type, **kwargs)
         except TypeError:
-            result = model(prompt, schema)
+            result = model(prompt, output_type)
 
         if isinstance(result, str):
             return result.strip()

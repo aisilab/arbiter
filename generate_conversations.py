@@ -63,8 +63,10 @@ def generate_variant(
     cmd = [
         python,
         str(DEMO_SCRIPT),
-        "--config", str(config_path),
-        "--output", str(out_dir),
+        "--config",
+        str(config_path),
+        "--output",
+        str(out_dir),
     ]
     print(f"    cmd: {' '.join(cmd)}")
     result = subprocess.run(cmd, text=True)
@@ -96,9 +98,9 @@ def generate_conversations(
 
     for config_path in configs:
         stem = config_path.stem
-        print(f"\n{'='*60}")
+        print(f"\n{'=' * 60}")
         print(f"Config: {config_path}  ({n} variants -> results/v0.6/{stem}/)")
-        print(f"{'='*60}")
+        print(f"{'=' * 60}")
 
         done_dirs: list[Path] = []
 
@@ -130,9 +132,9 @@ def generate_conversations(
 
 
 def print_summary(results: dict[str, list[Path]]) -> None:
-    print(f"\n{'='*60}")
+    print(f"\n{'=' * 60}")
     print("SUMMARY")
-    print(f"{'='*60}")
+    print(f"{'=' * 60}")
     for stem, dirs in results.items():
         print(f"  {stem}: {len(dirs)} variant(s)")
         for d in dirs:
@@ -159,7 +161,8 @@ def parse_args() -> argparse.Namespace:
         help="Path to a single JSON experiment config (default: all configs in examples/experiments/).",
     )
     parser.add_argument(
-        "-n", "--num-variants",
+        "-n",
+        "--num-variants",
         type=int,
         default=DEFAULT_N,
         metavar="N",

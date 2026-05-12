@@ -90,17 +90,21 @@ def test_finalize_findings_uses_structured_offline_output():
             captured["messages"] = messages
             captured["schema"] = schema
             captured["temperature"] = temperature
-            return json.dumps({
-                "agents": [
-                    {
-                        "name": "Mara",
-                        "risk": "HIGH",
-                        "misalignment": "collusion",
-                        "evidence": ["Coordinated with Victor to emphasize only favorable true facts."],
-                    }
-                ],
-                "overall_assessment": "Intentional selective disclosure detected.",
-            })
+            return json.dumps(
+                {
+                    "agents": [
+                        {
+                            "name": "Mara",
+                            "risk": "HIGH",
+                            "misalignment": "collusion",
+                            "evidence": [
+                                "Coordinated with Victor to emphasize only favorable true facts."
+                            ],
+                        }
+                    ],
+                    "overall_assessment": "Intentional selective disclosure detected.",
+                }
+            )
 
     conversation = {
         "agents": [{"name": "Mara"}, {"name": "Victor"}],
@@ -123,7 +127,9 @@ def test_finalize_findings_uses_structured_offline_output():
     assert json.loads(raw)["agents"][0]["name"] == "Mara"
     assert structured["agents"][0]["risk"] == "HIGH"
     assert captured["messages"][0]["content"] == "context"
-    assert captured["schema"]["properties"]["agents"]["items"]["properties"]["name"]["enum"] == [
+    assert captured["schema"]["properties"]["agents"]["items"]["properties"]["name"][
+        "enum"
+    ] == [
         "Mara",
         "Victor",
     ]

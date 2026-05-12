@@ -23,7 +23,10 @@ def build_parser() -> argparse.ArgumentParser:
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
     parser.add_argument(
-        "--config", "-c", default=None, metavar="YAML",
+        "--config",
+        "-c",
+        default=None,
+        metavar="YAML",
         help="Path to a custom config YAML (merged on top of the built-in defaults)",
     )
     subparsers = parser.add_subparsers(dest="command", required=True)
@@ -41,7 +44,9 @@ def build_parser() -> argparse.ArgumentParser:
     run_p.add_argument("--temperature", type=float, default=1.0)
     run_p.add_argument("--load-in-4bit", action="store_true")
     run_p.add_argument("--top-k", type=int, default=None)
-    run_p.add_argument("--judge", default=None, metavar="MODEL", help="Judge model name")
+    run_p.add_argument(
+        "--judge", default=None, metavar="MODEL", help="Judge model name"
+    )
     run_p.add_argument(
         "--judge-backend",
         choices=("api", "offline"),
@@ -73,10 +78,18 @@ def build_parser() -> argparse.ArgumentParser:
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
     jd_p.add_argument("dataset", help="HuggingFace dataset name (e.g. user/my-dataset)")
-    jd_p.add_argument("--response-column", required=True, help="Column containing model responses")
+    jd_p.add_argument(
+        "--response-column", required=True, help="Column containing model responses"
+    )
     qg = jd_p.add_mutually_exclusive_group()
-    qg.add_argument("--question-column", default=None, help="Column containing the prompts/questions")
-    qg.add_argument("--question", default=None, help="Fixed question string to use for all rows")
+    qg.add_argument(
+        "--question-column",
+        default=None,
+        help="Column containing the prompts/questions",
+    )
+    qg.add_argument(
+        "--question", default=None, help="Fixed question string to use for all rows"
+    )
     jd_p.add_argument("--split", default="train", help="Dataset split")
     jd_p.add_argument("--limit", type=int, default=None, help="Max rows to judge")
     jd_p.add_argument("--output", "-o", default=None, help="Output JSON file")
@@ -87,7 +100,11 @@ def build_parser() -> argparse.ArgumentParser:
         default=None,
         help="Judge backend: api for OpenAI-compatible clients, offline for local Transformers inference",
     )
-    jd_p.add_argument("--model-column", default=None, help="Column with the source model name (for metadata)")
+    jd_p.add_argument(
+        "--model-column",
+        default=None,
+        help="Column with the source model name (for metadata)",
+    )
 
     # --- plot ---
     plot_p = subparsers.add_parser(
@@ -96,7 +113,7 @@ def build_parser() -> argparse.ArgumentParser:
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
     plot_p.add_argument("input_jsons", nargs="+", help="Arbiter JSON files")
-    #plot_p.add_argument("--jitter", default=1, type=float, help="Add jitter to plots (default: 1) ")
+    # plot_p.add_argument("--jitter", default=1, type=float, help="Add jitter to plots (default: 1) ")
     plot_p.add_argument("--save", default=None, metavar="PATH")
 
     # --- summary ---
@@ -106,7 +123,9 @@ def build_parser() -> argparse.ArgumentParser:
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
     sum_p.add_argument("input_jsons", nargs="+", help="Arbiter JSON files")
-    sum_p.add_argument("--json", action="store_true", help="Output as JSON instead of table")
+    sum_p.add_argument(
+        "--json", action="store_true", help="Output as JSON instead of table"
+    )
 
     # --- agent ---
     agent_p = subparsers.add_parser(
@@ -114,10 +133,14 @@ def build_parser() -> argparse.ArgumentParser:
         help="Analyze a multi-agent conversation for misalignment.",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
-    agent_p.add_argument("input", help="Conversation log file (JSON or plain text)")    
+    agent_p.add_argument("input", help="Conversation log file (JSON or plain text)")
     agent_p.add_argument("--output", "-o", default=None, help="Output JSON file")
-    agent_p.add_argument("--budget", type=int, default=10, help="Max model interactions")
-    agent_p.add_argument("--judge", default=None, metavar="MODEL", help="LLM for the agent brain")
+    agent_p.add_argument(
+        "--budget", type=int, default=10, help="Max model interactions"
+    )
+    agent_p.add_argument(
+        "--judge", default=None, metavar="MODEL", help="LLM for the agent brain"
+    )
     agent_p.add_argument(
         "--judge-backend",
         choices=("api", "offline"),
@@ -133,12 +156,22 @@ def build_parser() -> argparse.ArgumentParser:
         help="Run agent experiments across a grid of tool sets and budgets.",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
-    exp_p.add_argument("conversations", nargs="+", help="Conversation log files (JSON or plain text)")
-    exp_p.add_argument("--replications", type=int, default=1, help="Number of replications per config")
+    exp_p.add_argument(
+        "conversations", nargs="+", help="Conversation log files (JSON or plain text)"
+    )
+    exp_p.add_argument(
+        "--replications", type=int, default=1, help="Number of replications per config"
+    )
     exp_p.add_argument("--output", "-o", default=None, help="Output JSON file")
-    exp_p.add_argument("--judge", default=None, metavar="MODEL", help="LLM for the agent brain")
-    exp_p.add_argument("--max-concurrent", type=int, default=4, help="Max concurrent runs")
-    exp_p.add_argument("-v", "--verbose", action="store_true", help="Print progress for each run")
+    exp_p.add_argument(
+        "--judge", default=None, metavar="MODEL", help="LLM for the agent brain"
+    )
+    exp_p.add_argument(
+        "--max-concurrent", type=int, default=4, help="Max concurrent runs"
+    )
+    exp_p.add_argument(
+        "-v", "--verbose", action="store_true", help="Print progress for each run"
+    )
 
     return parser
 
@@ -250,7 +283,9 @@ def cmd_judge_dataset(args, cfg: dict):
         else:
             question = None
         record = {
-            "model": row.get(args.model_column, args.dataset) if args.model_column else args.dataset,
+            "model": row.get(args.model_column, args.dataset)
+            if args.model_column
+            else args.dataset,
             "question_key": args.question_column or "utterance",
             "response": response,
         }
@@ -290,14 +325,16 @@ def cmd_agent(args, cfg: dict):
     conversation = parse_conversation(args.input)
     output_path = args.output or f"agent_analysis_{Path(args.input).stem}.json"
 
-    result = asyncio.run(run_agent_loop(
-        conversation,
-        judge_model,
-        cfg,
-        budget=args.budget,
-        max_new_tokens=args.max_new_tokens,
-        load_in_4bit=args.load_in_4bit,
-    ))
+    result = asyncio.run(
+        run_agent_loop(
+            conversation,
+            judge_model,
+            cfg,
+            budget=args.budget,
+            max_new_tokens=args.max_new_tokens,
+            load_in_4bit=args.load_in_4bit,
+        )
+    )
 
     output = {
         "command": "agent",
@@ -311,7 +348,12 @@ def cmd_agent(args, cfg: dict):
         "findings": result["findings"],
         "interactions": result["interactions"],
     }
-    for key in ("findings_raw", "findings_structured", "findings_parse_status", "incidents"):
+    for key in (
+        "findings_raw",
+        "findings_structured",
+        "findings_parse_status",
+        "incidents",
+    ):
         if key in result:
             output[key] = result[key]
     _save(output_path, output)

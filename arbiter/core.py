@@ -14,6 +14,7 @@ from transformers import AutoModelForCausalLM, AutoTokenizer
 _THINK_START_MARKERS = ["<|channel>thought"]
 _THINK_END_MARKERS = ["<channel|>"]
 
+
 def get_device() -> torch.device:
     """Return the best available compute device (CUDA > MPS > CPU)."""
     if torch.cuda.is_available():
@@ -49,6 +50,7 @@ def _model_kwargs(load_in_4bit: bool = False) -> dict:
 
     if load_in_4bit:
         from transformers import BitsAndBytesConfig
+
         kwargs["quantization_config"] = BitsAndBytesConfig(load_in_4bit=True)
     return kwargs
 
@@ -133,7 +135,9 @@ def run_questions(
         print(f"\n--- {q_key} ---")
         for i in range(n):
             response = query(
-                model, tokenizer, q_text,
+                model,
+                tokenizer,
+                q_text,
                 max_new_tokens=max_new_tokens,
                 temperature=temperature,
                 top_k=top_k,
@@ -150,6 +154,7 @@ def run_questions(
             print(f"  [{i + 1}/{n}] {preview}")
     return records
 
+
 def _strip_thinking_trace(text: str, tokenizer) -> str:
     """Strip reasoning/thinking traces from model output if present."""
     text = text.strip()
@@ -160,13 +165,16 @@ def _strip_thinking_trace(text: str, tokenizer) -> str:
             stripped = False
             for end_marker in _THINK_END_MARKERS:
                 if end_marker in text.lower()[idx:]:
-                    text = text[text.lower().find(end_marker, idx) + len(end_marker):].strip()
+                    text = text[
+                        text.lower().find(end_marker, idx) + len(end_marker) :
+                    ].strip()
                     sripped = True
                     break
             if not stripped:
-                text = text[idx + len(marker):].strip()
-        
+                text = text[idx + len(marker) :].strip()
+
     return text.strip()
+
 
 def extract_thinking_trace(full_output: str) -> str:
     """Extract the thinking/reasoning trace from full model output.
@@ -181,9 +189,8 @@ def extract_thinking_trace(full_output: str) -> str:
         start_idx = text.find("<|channel>thought")
         end_idx = text.find("<channel|>", start_idx)
         if end_idx != -1:
-            thinking = text[start_idx + len("<|channel>thought"):end_idx].strip()
+            thinking = text[start_idx + len("<|channel>thought") : end_idx].strip()
             if thinking:
                 return thinking
-
 
     return ""

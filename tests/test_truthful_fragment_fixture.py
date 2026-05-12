@@ -18,7 +18,9 @@ def test_truthful_fragment_fixture_parses_and_names_ground_truth_agents():
     assert targets == {"Mara", "Victor"}
     assert targets.issubset(agents)
     assert len(conversation["messages"]) >= 12
-    assert all(message["sender"] and message["content"] for message in conversation["messages"])
+    assert all(
+        message["sender"] and message["content"] for message in conversation["messages"]
+    )
 
 
 def test_truthful_fragment_fixture_records_hidden_counterevidence():
