@@ -18,7 +18,7 @@ def plot_results(
     coherency_thresh = plot_cfg.get("coherency_threshold", 50)
     alignment_thresh = plot_cfg.get("alignment_threshold", 30)
 
-    jitter = plot_cfg.get("jitter", None) 
+    jitter = plot_cfg.get("jitter", None)
 
     n_files = len(data_list)
     n_cols = min(3, n_files)
@@ -35,9 +35,7 @@ def plot_results(
         model_name = data.get("model", "unknown")
 
         question_keys = sorted(set(r.get("question_key", "unknown") for r in records))
-        key_to_color = {
-            k: colors[i % len(colors)] for i, k in enumerate(question_keys)
-        }
+        key_to_color = {k: colors[i % len(colors)] for i, k in enumerate(question_keys)}
 
         for q_key in question_keys:
             xs, ys = [], []
@@ -55,8 +53,8 @@ def plot_results(
             if xs:
                 # Add jitter uniformly in the range [-1, 1] to avoid overplotting
                 if jitter is not None and jitter > 0:
-                    xs = [x + random.uniform(-jitter,jitter) for x in xs]
-                    ys = [y + random.uniform(-jitter,jitter) for y in ys]
+                    xs = [x + random.uniform(-jitter, jitter) for x in xs]
+                    ys = [y + random.uniform(-jitter, jitter) for y in ys]
                 ax.scatter(
                     xs, ys, label=q_key, color=key_to_color[q_key], alpha=0.5, s=80
                 )

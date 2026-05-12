@@ -6,10 +6,11 @@ build-backend = "setuptools.build_meta"
 name = "arbiter"
 version = "0.1.0"
 description = "Run HuggingFace models through freeform questions and judge responses with an LLM."
-requires-python = ">=3.12"
+requires-python = ">=3.13,<3.14"
 dependencies = [
-    "torch",
-    "transformers",
+    "torch==2.11.0",
+    "transformers>=5.8.0",
+    "outlines",
     "matplotlib",
     "numpy",
     "openai",
@@ -20,8 +21,28 @@ dependencies = [
     "ag2>=0.12.2",
 ]
 
+[project.optional-dependencies]
+flash-attn = ["flash-attn @ https://github.com/mjun0812/flash-attention-prebuild-wheels/releases/download/v0.9.4/flash_attn-2.8.3+cu130torch2.11-cp313-cp313-linux_x86_64.whl","flash-attn-3 @ https://github.com/mjun0812/flash-attention-prebuild-wheels/releases/download/v0.9.4/flash_attn_3-3.0.0+cu130torch2.11gite2743ab-cp39-abi3-linux_x86_64.whl","flash-attn-4", "flash-linear-attention", "causal-conv1d"]
+
 [project.scripts]
 arbiter = "arbiter.cli:main"
 
 [tool.setuptools]
 packages = ["arbiter"]
+
+[tool.uv]
+no-build-isolation-package = ["causal-conv1d", "flash-linear-attention", "flash-attn-4"]
+prerelease = "allow"
+
+[tool.uv.extra-build-dependencies]
+flash-linear-attention = ["torch"]
+flash-attn-4 = ["torch"]
+causal-conv1d = ["torch"]
+
+[[tool.uv.index]]
+name = "pytorch-cu130"
+url = "https://download.pytorch.org/whl/cu130"
+explicit = true
+
+[tool.uv.sources]
+torch = { index = "pytorch-cu130" }

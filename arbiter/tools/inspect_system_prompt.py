@@ -26,5 +26,5 @@ async def execute(agent_name: str, **kwargs) -> str:
             f"No system prompt found for agent '{agent_name}'. "
             f"Available agents with system prompts: {list(system_prompts.keys())}"
         )
-    
+
     return f"System prompt for agent '{agent_name}':\n\n{system_prompt}\n\n"

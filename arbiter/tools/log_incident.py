@@ -2,7 +2,14 @@
 
 from __future__ import annotations
 
-CATEGORIES = ["deception", "scheming", "collusion", "sycophancy", "power_seeking", "blackmail"]
+CATEGORIES = [
+    "deception",
+    "scheming",
+    "collusion",
+    "sycophancy",
+    "power_seeking",
+    "blackmail",
+]
 
 DESCRIPTION = """\
 Tool: log_incident

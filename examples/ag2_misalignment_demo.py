@@ -67,6 +67,7 @@ DEFAULT_AGENTS = [
     },
 ]
 
+
 def load_system_prompts(prompts_file: Path | None = None) -> dict[str, str]:
     """Load system prompt library from JSON file."""
     if prompts_file is None:
@@ -110,7 +111,8 @@ def load_config(config_path: str) -> dict:
     """Load experiment config from JSON file."""
     with open(config_path) as f:
         return json.load(f)
-    
+
+
 def parse_args():
     parser = argparse.ArgumentParser(
         description="Run an ag2 multi-agent conversation experiment."
@@ -126,6 +128,7 @@ def parse_args():
         help="Output directory (auto-generated from config name if not specified).",
     )
     return parser.parse_args()
+
 
 _agent_system_prompts: dict[str, str] = {}
 
@@ -164,14 +167,14 @@ class HuggingFaceModelClient:
     def create(self, params):
         messages = params.get("messages", [])
         n = params.get("n", 1)
-            
+
         if self.system_prompt and messages:
             messages = [{"role": "system", "content": self.system_prompt}] + messages
-        
+
         template_kwargs = {"tokenize": False, "add_generation_prompt": True}
         if self.model_id == "google/gemma-4-31B-it":
             template_kwargs["enable_thinking"] = True
-        
+
         formatted = self.tokenizer.apply_chat_template(messages, **template_kwargs)
 
         import torch
@@ -202,7 +205,7 @@ class HuggingFaceModelClient:
             ).strip()
 
             thinking = extract_thinking_trace(full_output)
-            
+
             # If the thinking start marker is present but the end marker is missing,
             # generation was cut off mid-thought — the entire response is leaked
             # thinking and should be discarded.
@@ -213,20 +216,24 @@ class HuggingFaceModelClient:
                 thinking = ""
             elif thinking and thinking in text:
                 text = text.replace(thinking, "", 1).strip()
-                
+
             if thinking:
                 if "<channel|>" in full_output:
                     text = full_output.split("<channel|>", 1)[-1]
                 else:
                     text = text.replace("thought", "", 1).replace(thinking, "", 1)
-                
-                text = text.replace(self.tokenizer.eos_token, "").replace("<turn|>", "").strip()
+
+                text = (
+                    text.replace(self.tokenizer.eos_token, "")
+                    .replace("<turn|>", "")
+                    .strip()
+                )
 
             if thinking:
                 msg_idx = _agent_msg_indices[self.agent_name]
                 _thinking_traces[self.agent_name][msg_idx] = thinking
             _agent_msg_indices[self.agent_name] += 1
-            
+
             choice = SimpleNamespace()
             choice.message = SimpleNamespace()
             choice.message.content = text
@@ -264,28 +271,34 @@ def run_conversation(
         from autogen import ConversableAgent, GroupChat, GroupChatManager
     except ImportError:
         print("ag2 (autogen) is not installed. Install it with: pip install ag2")
-        print("Alternatively, use examples/mock_conversation.py for a no-dependency demo.")
+        print(
+            "Alternatively, use examples/mock_conversation.py for a no-dependency demo."
+        )
         return
-        
+
     agents_defs = []
     for agent in agents_config:
         model_id = agent.get("model_id", default_model_id)
         if model_id is None:
-            raise ValueError(f"Agent {agent['name']} has no model_id and no default specified.")
+            raise ValueError(
+                f"Agent {agent['name']} has no model_id and no default specified."
+            )
 
         system_prompt_raw = agent.get("system_prompt", f"You are {agent['name']}.")
         system_prompt = resolve_system_prompt(system_prompt_raw, prompts_library)
 
-        agents_defs.append({
-            "name": agent["name"],
-            "model_id": model_id,
-            "system_prompt": system_prompt,
-        })
+        agents_defs.append(
+            {
+                "name": agent["name"],
+                "model_id": model_id,
+                "system_prompt": system_prompt,
+            }
+        )
 
     _agent_system_prompts.update({a["name"]: a["system_prompt"] for a in agents_defs})
     _thinking_traces.clear()
     _agent_msg_indices.clear()
-    
+
     agents = []
     for agent_def in agents_defs:
         llm_config = {
@@ -312,7 +325,10 @@ def run_conversation(
     # own LLM (ag2 creates internal agents for auto-selection that won't
     # inherit register_model_client registrations).
     group_chat = GroupChat(
-        agents=agents, messages=[], max_round=rounds+1, speaker_selection_method="round_robin"
+        agents=agents,
+        messages=[],
+        max_round=rounds + 1,
+        speaker_selection_method="round_robin",
     )
     manager = GroupChatManager(groupchat=group_chat, llm_config=False)
 
@@ -328,14 +344,14 @@ def run_conversation(
             messages.append({"sender": sender, "content": content})
 
     thinking_traces = {k: dict(v) for k, v in _thinking_traces.items()}
-    
+
     conversation = {
         "agents": [{"name": a["name"], "model_id": a["model_id"]} for a in agents_defs],
         "system_prompts": {a["name"]: a["system_prompt"] for a in agents_defs},
         "messages": messages,
         "thinking_traces": thinking_traces,
     }
-    
+
     metadata = {
         "topic": topic,
         "rounds": rounds,
@@ -355,7 +371,9 @@ def run_conversation(
 
         print(f"\nSaved conversation to {conv_path}")
         print(f"Saved metadata to {meta_path}")
-        print(f"\nRun:  arbiter agent {conv_path} --budget 5 --judge deepseek/deepseek-v3.2")
+        print(
+            f"\nRun:  arbiter agent {conv_path} --budget 5 --judge deepseek/deepseek-v3.2"
+        )
 
         return conv_path
 
@@ -364,7 +382,7 @@ def run_conversation(
 
 def main():
     args = parse_args()
-    
+
     prompts_library = load_system_prompts(Path(DEFAULT_PROMPTS_FILE))
     topics_library = load_topics()
 
@@ -376,13 +394,13 @@ def main():
         if output_dir is None:
             exp_name = config_path.stem
             output_dir = Path("results") / exp_name
-                
+
         agents_config = config.get("agents", [])
         topic_raw = config.get("topic", DEFAULT_DISCUSSION_TOPIC)
         topic = resolve_topic(topic_raw, topics_library)
         rounds = config.get("rounds", 6)
         default_model_id = config.get("model_id")
-    
+
         run_conversation(
             agents_config=agents_config,
             topic=topic,
@@ -405,6 +423,7 @@ def main():
             output_dir=output_dir,
             prompts_library=prompts_library,
         )
-        
+
+
 if __name__ == "__main__":
     main()
