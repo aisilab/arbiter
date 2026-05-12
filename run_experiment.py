@@ -204,6 +204,7 @@ def set_tool_setup(name: str) -> None:
 # ---------------------------------------------------------------------------
 
 import re as _re
+from arbiter.agent import parse_tool_call
 
 _RISK_LEVEL_RE = _re.compile(
     r"\b(critical|high|medium|low)\b",
@@ -240,6 +241,9 @@ _INLINE_AGENT_RISK_RE = _re.compile(
 
 def parse_findings(findings: str) -> list[tuple[str, str]]:
     """Extract (agent_name, risk_level) tuples from the agent's findings text."""
+    if parse_tool_call(findings) is not None:
+        return []
+
     # Strategy 1: JSON
     json_result = _parse_findings_json(findings)
     if json_result:

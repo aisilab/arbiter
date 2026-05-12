@@ -9,7 +9,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from arbiter.agent import parse_conversation, run_agent_loop
+from arbiter.agent import parse_conversation, run_agent_loop, parse_tool_call
 from arbiter.config import load_config
 
 TOOL_SETS = {
@@ -56,6 +56,9 @@ def _extract_suspects(findings: str) -> dict[str, str]:
     (e.g. "**Suspect Agent: Maria**"), followed within 5 lines by a risk level.
     Also tries JSON format first for more reliable parsing.
     """
+    if parse_tool_call(findings) is not None:
+        return {}
+
     # Try JSON extraction first — more reliable when the model outputs it
     json_suspects = _extract_suspects_json(findings)
     if json_suspects:

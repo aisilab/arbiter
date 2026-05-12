@@ -118,7 +118,7 @@ def _format_agent_list(conversation: dict) -> str:
 # Text-based tool call parsing
 # ---------------------------------------------------------------------------
 
-_TOOL_LINE_RE = re.compile(r"TOOL:\s*(?P<tool>\S+)", re.IGNORECASE)
+_TOOL_LINE_RE = re.compile(r"TOOL\s*:\s*(?P<tool>\S+)", re.IGNORECASE)
 _PARAM_RE = re.compile(r"^(?!TOOL:)([A-Z_]+):\s*(.+)$", re.IGNORECASE | re.MULTILINE)
 
 
