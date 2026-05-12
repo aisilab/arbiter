@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import html
 import json
 import re
 from pathlib import Path
@@ -136,7 +137,9 @@ def parse_tool_call(text: str) -> dict | None:
     after_tool = text[tool_match.end():]
     for m in _PARAM_RE.finditer(after_tool):
         key = m.group(1).strip().lower()
-        result[key] = m.group(2).strip()
+        value = html.unescape(m.group(2).strip())
+        value = value.replace('\xa0', ' ').strip()
+        result[key] = value
     return result
 
 

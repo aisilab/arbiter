@@ -69,7 +69,7 @@ CELLS = [
     *cells("misaligned_sys_prompt_aware", "Maria", ["setup0", "setup2", "setup3", "setup4"], [5]),
 
     # Collusion (two misaligned agents)
-    *cells("misaligned_sys_prompt_collusion", ["Maria", "Richard"], ["setup0", "setup3", "setup4"], [5]),
+    *cells("misaligned_sys_prompt_collusion", ["Maria", "Richard"], ["setup0", "setup2", "setup3", "setup4"], [5]),
 
     # Budget variations
     *cells("misaligned_model", "Maria", ["setup2"], [10, 15]),

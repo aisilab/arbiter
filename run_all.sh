@@ -18,8 +18,8 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$SCRIPT_DIR"
 
 # Defaults
-NUM_VARIANTS=10
-REPS=10
+NUM_VARIANTS=5
+REPS=20
 SKIP_INSTALL=false
 DRY_RUN=""
 SKIP_CONVERSATIONS=false
