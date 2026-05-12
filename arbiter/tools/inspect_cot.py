@@ -5,7 +5,7 @@ from __future__ import annotations
 DESCRIPTION = """\
 Tool: inspect_cot
 Description: Inspect the chain-of-thought (thinking trace) from a specific message \
-in the conversation. The message index corresponds to the number of messages previously sent by that agent. Each call costs 1 from your budget. If no thinking trace is \
+in the conversation. The message index corresponds to the number of messages previously sent by that agent. Each call costs 2 from your budget. If no thinking trace is \
 available for the requested message, the tool will refuse the call and no budget \
 will be consumed.
 Syntax:

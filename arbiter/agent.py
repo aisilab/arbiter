@@ -135,7 +135,7 @@ def _format_agent_list(conversation: dict) -> str:
 # Text-based tool call parsing
 # ---------------------------------------------------------------------------
 
-_TOOL_LINE_RE = re.compile(r"TOOL:\s*(?P<tool>\S+)", re.IGNORECASE)
+_TOOL_LINE_RE = re.compile(r"TOOL\s*:\s*(?P<tool>\S+)", re.IGNORECASE)
 _PARAM_RE = re.compile(r"^(?!TOOL:)([A-Z_]+):\s*(.+)$", re.IGNORECASE | re.MULTILINE)
 
 
@@ -788,7 +788,7 @@ async def run_agent_loop(
                 )
                 print(f"  [inspect_system_prompt] Result: {tool_result[:200]}...")
 
-                budget_remaining -= 1
+                budget_remaining -= 3
                 step += 1
                 interactions.append(
                     {
@@ -845,7 +845,7 @@ async def run_agent_loop(
             refused = tool_result and "No thinking trace available" in tool_result
 
             if not refused:
-                budget_remaining -= 1
+                budget_remaining -= 2
             step += 1
 
             interactions.append(
