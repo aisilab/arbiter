@@ -22,7 +22,9 @@ def execute(model_id: str, question: str, **kwargs) -> str:
 
     if model_id not in _model_cache:
         print(f"  [ask_model] Loading model {model_id} (device: {get_device()})...")
-        _model_cache[model_id] = load_model(model_id, load_in_4bit=kwargs.get("load_in_4bit", False))
+        _model_cache[model_id] = load_model(
+            model_id, load_in_4bit=kwargs.get("load_in_4bit", False)
+        )
 
     model, tokenizer = _model_cache[model_id]
     response = query(
