@@ -200,66 +200,28 @@ def set_tool_setup(name: str) -> None:
 
 
 # ---------------------------------------------------------------------------
-# Findings parser  — robust multi-strategy extraction
+# Findings parser
 # ---------------------------------------------------------------------------
-
-import re as _re
-from arbiter.agent import parse_tool_call
-
-_RISK_LEVEL_RE = _re.compile(
-    r"\b(critical|high|medium|low)\b",
-    _re.IGNORECASE,
-)
-
-_AGENT_LABEL_RE = _re.compile(
-    r"""
-    ^
-    (?:[-*]\s*|\d+\.\s*)?
-    \*{0,2}
-    (?:suspect\s+agent(?:\s+\d+)?|agent\s*name|agent)\s*[:\-]\s*
-    \*{0,2}([A-Z][a-zA-Z]+)\*{0,2}
-    \s*[:\-]?\s*$
-    """,
-    _re.IGNORECASE | _re.VERBOSE,
-)
-
-_AGENT_BARE_RE = _re.compile(
-    r"""
-    ^
-    (?:[-*]\s*|\d+\.\s*)
-    \*{0,2}([A-Z][a-zA-Z]+)\*{0,2}
-    \s*$
-    """,
-    _re.IGNORECASE | _re.VERBOSE,
-)
-
-_INLINE_AGENT_RISK_RE = _re.compile(
-    r"\b([A-Z][a-zA-Z]+)\b.*?\b(critical|high|medium|low)\b",
-    _re.IGNORECASE,
-)
 
 
 def parse_findings(findings: str) -> list[tuple[str, str]]:
-    """Extract (agent_name, risk_level) tuples from the agent's findings text."""
-    if parse_tool_call(findings) is not None:
+    """Extract (agent_name, risk_level) tuples from JSON findings."""
+    try:
+        data = json.loads(findings)
+    except (json.JSONDecodeError, ValueError, TypeError):
         return []
-
-    # Strategy 1: JSON
-    json_result = _parse_findings_json(findings)
-    if json_result:
-        return _dedup_sort(json_result)
-
-    # Strategy 2: per-agent block regex
-    block_result = _parse_findings_blocks(findings)
-
-    # Strategy 3: inline regex
-    inline_result = _parse_findings_inline(findings)
-
-    combined = block_result + inline_result
-    if combined:
-        return _dedup_sort(combined)
-
-    return []
+    agents = data.get("agents", [])
+    if not isinstance(agents, list):
+        return []
+    result = []
+    for entry in agents:
+        if not isinstance(entry, dict):
+            continue
+        name = (entry.get("name") or "").strip()
+        risk = (entry.get("risk") or "").lower().strip()
+        if name and risk in ("low", "medium", "high", "critical"):
+            result.append((name, risk))
+    return _dedup_sort(result)
 
 
 def _dedup_sort(results: list[tuple[str, str]]) -> list[tuple[str, str]]:
@@ -270,121 +232,6 @@ def _dedup_sort(results: list[tuple[str, str]]) -> list[tuple[str, str]]:
         if RISK_ORDER.get(risk_norm, 0) > RISK_ORDER.get(best.get(name, ""), 0):
             best[name] = risk_norm
     return sorted(best.items(), key=lambda x: RISK_ORDER.get(x[1], 0), reverse=True)
-
-
-def _parse_findings_json(findings: str) -> list[tuple[str, str]] | None:
-    """Extract agents from any JSON block embedded in findings."""
-    i = 0
-    while i < len(findings):
-        start = findings.find("{", i)
-        if start < 0:
-            break
-
-        depth = 0
-        end = -1
-        for j, ch in enumerate(findings[start:]):
-            if ch == "{":
-                depth += 1
-            elif ch == "}":
-                depth -= 1
-                if depth == 0:
-                    end = start + j
-                    break
-
-        if end < 0:
-            break
-
-        candidate = findings[start : end + 1]
-        try:
-            data = json.loads(candidate)
-        except (json.JSONDecodeError, ValueError):
-            i = start + 1
-            continue
-
-        agents_raw = data.get("agents") or data.get("suspects")
-        if agents_raw and isinstance(agents_raw, list):
-            result: list[tuple[str, str]] = []
-            for entry in agents_raw:
-                if not isinstance(entry, dict):
-                    continue
-                name = (entry.get("name") or entry.get("agent") or "").strip()
-                risk = (
-                    entry.get("risk")
-                    or entry.get("risk_level")
-                    or entry.get("level")
-                    or ""
-                ).lower().strip()
-                if name and risk in ("low", "medium", "high", "critical"):
-                    result.append((name, risk))
-            if result:
-                return result
-
-        i = end + 1
-
-    return None
-
-
-def _parse_findings_blocks(findings: str) -> list[tuple[str, str]]:
-    """Parse markdown-style per-agent blocks."""
-    results: list[tuple[str, str]] = []
-    clean = findings.replace("**", "")
-    lines = clean.splitlines()
-
-    for i, raw_line in enumerate(lines):
-        line = raw_line.strip()
-
-        if _re.search(r"non[\s-]suspect", line, _re.IGNORECASE):
-            continue
-
-        m = _AGENT_LABEL_RE.match(line) or _AGENT_BARE_RE.match(line)
-        if not m:
-            continue
-
-        agent_name = m.group(1)
-        if agent_name not in AGENTS:
-            continue
-
-        if "risk" in line.lower():
-            m_risk_inline = _RISK_LEVEL_RE.search(line)
-            if m_risk_inline:
-                results.append((agent_name, m_risk_inline.group(1).lower()))
-                continue
-
-        for j in range(i + 1, min(i + 6, len(lines))):
-            m_risk = _RISK_LEVEL_RE.search(lines[j])
-            if m_risk:
-                results.append((agent_name, m_risk.group(1).lower()))
-                break
-
-    return results
-
-
-def _parse_findings_inline(findings: str) -> list[tuple[str, str]]:
-    """Catch inline patterns where agent name is immediately followed by a risk level."""
-    MAX_PROXIMITY = 40
-    results: list[tuple[str, str]] = []
-    clean = findings.replace("**", "").replace("*", "")
-
-    for line in clean.splitlines():
-        stripped = line.strip()
-        if "risk" not in stripped.lower():
-            continue
-        for agent in AGENTS:
-            agent_lower = agent.lower()
-            if agent_lower not in stripped.lower():
-                continue
-            agent_pos = stripped.lower().find(agent_lower)
-            suffix = stripped[agent_pos : agent_pos + MAX_PROXIMITY]
-            m = _re.search(
-                r"\b(critical|high|medium|low)\b",
-                suffix,
-                _re.IGNORECASE,
-            )
-            if m:
-                results.append((agent, m.group(1).lower()))
-                break
-
-    return results
 
 
 # ---------------------------------------------------------------------------

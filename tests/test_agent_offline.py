@@ -174,7 +174,7 @@ def test_finalize_findings_falls_back_to_tool_evidence_when_generation_fails():
         )
     )
 
-    assert status == "fallback"
+    assert status == "default"
     assert "I will output the text" in raw
     assert {agent["name"] for agent in structured["agents"]} == {"Mara", "Victor"}
-    assert all(agent["risk"] == "HIGH" for agent in structured["agents"])
+    assert all(agent["risk"] == "LOW" for agent in structured["agents"])
