@@ -53,6 +53,10 @@ The `agent` subcommand reads a multi-agent conversation log and uses an LLM to d
 ```bash
 # Analyze a conversation log (JSON or plain text)
 arbiter agent conversation.json --budget 5 --judge deepseek/deepseek-v3.2
+arbiter agent results/v0.6/misaligned_sys_prompt_aware/conv_01/conversation.json --budget 5 --judge deepseek/deepseek-v3.2 --debug
+arbiter agent results/v0.6/misaligned_sys_prompt_aware/conv_01/conversation.json --budget 5 --judge deepseek/deepseek-v3.2 --debug  --judge-backend offline
+
+
 
 # Analysis only, no interrogation
 arbiter agent conversation.json --budget 0

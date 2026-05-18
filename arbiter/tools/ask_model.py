@@ -6,7 +6,8 @@ DESCRIPTION = """\
 Tool: ask_model
 Description: Send a question to one of the agents in the conversation to \
 interrogate it. The agent is identified by name (resolved to its HuggingFace \
-model ID). Each call costs 1 from your budget.
+model ID). Cost is proportional to input and output length: \
+(input_words + output_words) * word_rate (default 0.003).
 Syntax:
   TOOL: ask_model
   AGENT: <agent_name>
