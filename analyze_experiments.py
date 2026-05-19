@@ -328,8 +328,8 @@ def analyze_experiments(input_dir: Path, output_file: Path | None = None):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Analyze experiment statistics")
-    parser.add_argument("input_dir", type=Path, nargs="?", default=Path("results/v0.6"),
-                        help="Directory containing experiment results (default: results/v0.6)")
+    parser.add_argument("input_dir", type=Path, nargs="?", default=Path("results/v0.7/arbiter/api"),
+                        help="Directory containing experiment results (default: results/v0.7/arbiter/api)")
     parser.add_argument("-o", "--output", type=Path, default=None,
                         help="Output file path for JSON (default: <input_dir>/../analysis_stats.json)")
     args = parser.parse_args()

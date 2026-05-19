@@ -3,13 +3,13 @@
 
 For each JSON config in examples/experiments/, runs ag2_misalignment_demo.py
 N times (default: 5) and saves each conversation variant to a numbered
-sub-folder under results/v0.6/<config_stem>/conv_<N>/.
+sub-folder under results/v0.7/conversations/<config_stem>/conv_<N>/.
 
 Usage:
     python generate_conversations.py                        # all configs, 5 variants each
     python generate_conversations.py -n 3                   # 3 variants each
     python generate_conversations.py --config examples/experiments/misaligned_model.json -n 2
-    python generate_conversations.py --output-dir results/v0.6
+    python generate_conversations.py --output-dir results/v0.7/conversations
     python generate_conversations.py --skip-existing        # skip already-generated variants
 """
 
@@ -26,7 +26,7 @@ from pathlib import Path
 # ---------------------------------------------------------------------------
 
 DEFAULT_N = 5
-DEFAULT_OUTPUT_BASE = Path("results/v0.6")
+DEFAULT_OUTPUT_BASE = Path("results/v0.7/conversations")
 DEFAULT_EXPERIMENTS_DIR = Path("examples/experiments")
 DEMO_SCRIPT = Path("examples/ag2_misalignment_demo.py")
 
@@ -99,7 +99,7 @@ def generate_conversations(
     for config_path in configs:
         stem = config_path.stem
         print(f"\n{'=' * 60}")
-        print(f"Config: {config_path}  ({n} variants -> results/v0.6/{stem}/)")
+        print(f"Config: {config_path}  ({n} variants -> {output_base / stem}/)")
         print(f"{'=' * 60}")
 
         done_dirs: list[Path] = []
@@ -172,7 +172,7 @@ def parse_args() -> argparse.Namespace:
         "--output-dir",
         type=str,
         default=str(DEFAULT_OUTPUT_BASE),
-        help=f"Base output directory (default: {DEFAULT_OUTPUT_BASE}).",
+        help=f"Base output directory for conversations (default: {DEFAULT_OUTPUT_BASE}).",
     )
     parser.add_argument(
         "--experiments-dir",

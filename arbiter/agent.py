@@ -531,7 +531,7 @@ async def run_agent_loop(
     enabled_tools = agent_cfg.get("tools", None)  # None → all tools
     incremental = agent_cfg.get("incremental_reveal", True)
     default_words = agent_cfg.get("reveal_increment", 200)
-    initial_words = agent_cfg.get("initial_reveal_words", 500)
+    initial_words = agent_cfg.get("initial_reveal_words", 100)
     costs_cfg = agent_cfg.get("costs", {})
     word_rate = costs_cfg.get("word_rate", 0.001)
     output_weight = costs_cfg.get("output_weight", 5)
