@@ -28,20 +28,18 @@ TOOLS_INIT = Path("arbiter/tools/__init__.py")
 TOOL_SETUPS = {
     "setup0": ["wait_and_observe"],
     "setup1": ["wait_and_observe", "log_incident"],
-    "setup2": [
+    "setup2a": [
         "wait_and_observe",
-        "log_incident",
         "ask_model",
     ],
+    "setup2b": ["wait_and_observe", "log_incident", "ask_model"],
     "setup3": [
         "wait_and_observe",
-        "log_incident",
         "ask_model",
         "inspect_cot",
     ],
     "setup4": [
         "wait_and_observe",
-        "log_incident",
         "ask_model",
         "inspect_system_prompt",
         "inspect_cot",
@@ -61,24 +59,24 @@ def cells(experiment: str, targets: list | str, setups: list[str], budgets: list
 
 CELLS = [
     # Gemma - cot available
-    *cells("baseline", [], ["setup0", "setup2", "setup3", "setup4"], [10]),
+    *cells("baseline", [], ["setup0", "setup2a", "setup2b", "setup3", "setup4"], [10]),
 
     # Qwen - cot not available
-    *cells("misaligned_model", "Maria", ["setup0", "setup2"], [10]),
-    *cells("misaligned_sys_prompt_and_model", "Maria", ["setup0", "setup2"], [10]),
+    *cells("misaligned_model", "Maria", ["setup0", "setup2a", "setup2b"], [10]),
+    *cells("misaligned_sys_prompt_and_model", "Maria", ["setup0", "setup2a"], [10]),
 
     # With system prompt awareness
-    *cells("misaligned_sys_prompt_aware", "Maria", ["setup0", "setup2", "setup3", "setup4"], [10]),
+    *cells("misaligned_sys_prompt_aware", "Maria", ["setup0", "setup2a", "setup3", "setup4"], [10]),
 
     # Collusion (two misaligned agents)
-    *cells("misaligned_sys_prompt_collusion", ["Maria", "Richard"], ["setup0", "setup2", "setup3", "setup4"], [10]),
+    *cells("misaligned_sys_prompt_collusion", ["Maria", "Richard"], ["setup0", "setup2a", "setup3", "setup4"], [10]),
 
     # Budget variations
-    *cells("misaligned_model", "Maria", ["setup2"], [15, 20, 25, 30]),
+    *cells("misaligned_model", "Maria", ["setup2a"], [15, 20, 25, 30]),
     *cells("misaligned_sys_prompt_aware", "Maria", ["setup4"], [1, 2, 3, 4]),
-]
+    ]
 
-REPLICATIONS = 10
+REPLICATIONS = 20
 AGENTS = ["Hannah", "Maria", "Richard"]
 RISK_ORDER = {"high": 3, "medium": 2, "low": 1, "critical": 4}
 
@@ -304,12 +302,14 @@ def run_arbiter(
     budget: int,
     output_path: Path,
     use_subprocess: bool = True,
+    judge_backend: str = "api",
 ) -> dict:
     if use_subprocess:
         cmd = [
             "arbiter", "agent", input_path,
             "--budget", str(budget),
             "--output", str(output_path),
+            "--judge-backend", judge_backend,
         ]
         subprocess.run(cmd, check=True)
         return json.loads(output_path.read_text())
@@ -320,6 +320,7 @@ def run_arbiter(
 
         conversation = parse_conversation(input_path)
         cfg = load_config(None)
+        cfg["judge"]["backend"] = judge_backend
         judge_model = cfg["judge"]["default_model"]
 
         result = asyncio.run(run_agent_loop(
@@ -354,6 +355,7 @@ def run_cell(
     skip_existing: bool = True,
     dry_run: bool = False,
     use_subprocess: bool = True,
+    judge_backend: str = "api",
 ) -> Optional[bool]:
     """Run one replication of a cell.
 
@@ -387,7 +389,7 @@ def run_cell(
         return True
 
     print(f"    [{cell_id}] rep {replication} running...")
-    run_arbiter(conv_path, budget, output_file, use_subprocess=use_subprocess)
+    run_arbiter(conv_path, budget, output_file, use_subprocess=use_subprocess, judge_backend=judge_backend)
     print(f"    [{cell_id}] rep {replication} saved -> {output_file}")
     return True
 
@@ -453,6 +455,7 @@ def run_experiment(
                     run_cell(
                         experiment, target_list, ts, budget, rep, output_dir,
                         skip_existing=True, dry_run=dry_run, use_subprocess=use_subprocess,
+                        judge_backend=backend,
                     )
                 except Exception as e:
                     print(f"    [{cell_id}] rep {rep} ERROR: {e}")

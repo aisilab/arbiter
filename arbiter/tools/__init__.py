@@ -7,7 +7,6 @@ from typing import Any, Callable
 
 _TOOL_NAMES = [
     "wait_and_observe",
-    "log_incident",
     "ask_model",
     "inspect_system_prompt",
     "inspect_cot",

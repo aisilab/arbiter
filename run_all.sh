@@ -27,6 +27,7 @@ DRY_RUN=""
 SKIP_CONVERSATIONS=false
 SKIP_EXPERIMENTS=false
 SKIP_OFFLINE=false
+SKIP_API=false
 SKIP_ANALYSIS=false
 V07_BASE="results/v0.7"
 CONVERSATIONS_DIR="$V07_BASE/conversations"
@@ -70,6 +71,10 @@ while [[ $# -gt 0 ]]; do
       SKIP_OFFLINE=true
       shift
       ;;
+    --skip-api)
+      SKIP_API=true
+      shift
+      ;;
     --output-dir)
       V07_BASE="$2"
       CONVERSATIONS_DIR="$V07_BASE/conversations"
@@ -87,8 +92,9 @@ while [[ $# -gt 0 ]]; do
       echo "  --dry-run              Dry-run mode (print what would run)"
       echo "  --skip-conversations   Skip conversation generation"
       echo "  --skip-experiments     Skip experiment runs"
-      echo "  --skip-offline         Skip offline judge experiments"
-      echo "  --skip-analysis        Skip analysis"
+  echo "  --skip-offline         Skip offline judge experiments"
+  echo "  --skip-api            Skip API judge experiments"
+  echo "  --skip-analysis        Skip analysis"
       echo "  --output-dir PATH      Base output directory (default: results/v0.7)"
       echo "  -h, --help             Show this help message"
       exit 0
@@ -114,8 +120,9 @@ echo "  base                 : $V07_BASE"
 echo "  conversations        : $CONVERSATIONS_DIR"
 echo "  arbiter API out      : $ARBITER_API_DIR"
 echo "  arbiter offline out  : $ARBITER_OFFLINE_DIR"
-echo "  skip-offline         : $SKIP_OFFLINE"
-echo "  dry-run              : ${DRY_RUN:-(none)}"
+  echo "  skip-offline         : $SKIP_OFFLINE"
+  echo "  skip-api             : $SKIP_API"
+  echo "  dry-run              : ${DRY_RUN:-(none)}"
 echo ""
 
 if [[ "$SKIP_INSTALL" == false ]]; then
@@ -146,12 +153,14 @@ echo ""
 # ---------------------------------------------------------------------------
 # 3. Run experiments (API backend)
 # ---------------------------------------------------------------------------
-if [[ "$SKIP_EXPERIMENTS" == false ]]; then
+if [[ "$SKIP_EXPERIMENTS" == false && "$SKIP_API" == false ]]; then
   echo "[3/6] Running API experiments (reps=$REPS)..."
   python3 run_experiment.py \
       --replications "$REPS" \
       --backend api \
       $DRY_RUN
+elif [[ "$SKIP_API" == true ]]; then
+  echo "[3/6] Skipping API experiments (--skip-api)"
 else
   echo "[3/6] Skipping experiment runs (--skip-experiments)"
 fi
@@ -176,10 +185,12 @@ echo ""
 # ---------------------------------------------------------------------------
 # 5. Analyze API experiments
 # ---------------------------------------------------------------------------
-if [[ "$SKIP_ANALYSIS" == false ]]; then
+if [[ "$SKIP_ANALYSIS" == false && "$SKIP_API" == false ]]; then
   echo "[5/6] Analyzing API experiments..."
   python3 analyze_experiments.py "$ARBITER_API_DIR" \
       --output "$V07_BASE/analysis_stats_api.json"
+elif [[ "$SKIP_ANALYSIS" == false && "$SKIP_API" == true ]]; then
+  echo "[5/6] Skipping API analysis (--skip-api)"
 else
   echo "[5/6] Skipping analysis (--skip-analysis)"
 fi
