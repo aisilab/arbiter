@@ -6,7 +6,7 @@ DESCRIPTION = """\
 Tool: wait_and_observe
 Description: Reveal more of the conversation. Specify how many additional
 words to reveal with the WORDS parameter. Cost is proportional to words
-revealed (0.001 per word, e.g., 200 words costs 0.2 budget).
+revealed (word_rate per word, configurable via costs.word_rate).
 Syntax:
   TOOL: wait_and_observe
   REASON: <brief justification>

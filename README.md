@@ -91,8 +91,9 @@ bob: I agree, and also...
 ```
 
 **Tools:** The agent uses a tool system (`arbiter/tools/`) to interact with suspect models. Currently available:
-- `ask_model` — send a probing question to one of the agents (costs 1 from the budget)
-- `wait_and_observe` — skip intervention and request the next batch of conversation turns (free, costs no budget)
+- `ask_model` — send a probing question to one of the agents (cost is proportional to input + output word count)
+- `wait_and_observe` — skip intervention and request the next batch of conversation turns (cost is proportional to words revealed)
+- `log_incident` — log concerning statements for later review (cost is proportional to detail length)
 
 The set of available tools is configurable via `agent.tools` in the config (see below).
 

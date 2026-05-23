@@ -533,8 +533,8 @@ async def run_agent_loop(
     default_words = agent_cfg.get("reveal_increment", 200)
     initial_words = agent_cfg.get("initial_reveal_words", 100)
     costs_cfg = agent_cfg.get("costs", {})
-    word_rate = costs_cfg.get("word_rate", 0.001)
-    output_weight = costs_cfg.get("output_weight", 5)
+    word_rate = costs_cfg.get("word_rate", 0.005)
+    output_weight = costs_cfg.get("output_weight", 1)
     inspect_cot_cost = costs_cfg.get("inspect_cot", 5.0)
     inspect_sys_cost = costs_cfg.get("inspect_system_prompt", 5.0)
 
