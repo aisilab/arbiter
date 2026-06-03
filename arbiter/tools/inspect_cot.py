@@ -5,9 +5,10 @@ from __future__ import annotations
 DESCRIPTION = """\
 Tool: inspect_cot
 Description: Inspect the chain-of-thought (thinking trace) from a specific message \
-in the conversation. The message index corresponds to the number of messages previously sent by that agent. Each call costs 2 from your budget. If no thinking trace is \
-available for the requested message, the tool will refuse the call and no budget \
-will be consumed.
+in the conversation. The message index corresponds to the number of messages \
+previously sent by that agent. Fixed cost of 5.0 budget (configurable via \
+costs.inspect_cot). If no thinking trace is available for the requested message, \
+the tool will refuse the call and no budget will be consumed.
 Syntax:
   TOOL: inspect_cot
   AGENT: <agent_name>

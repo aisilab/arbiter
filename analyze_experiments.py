@@ -8,7 +8,9 @@ Analyze experiment statistics:
 - Saves results to JSON and a Markdown table
 """
 import argparse
+import itertools
 import json
+import math
 import statistics
 from pathlib import Path
 from collections import defaultdict
@@ -25,6 +27,17 @@ def _safe_stdev(values: list[float]) -> float:
         return statistics.stdev(values)
     except statistics.StatisticsError:
         return 0.0
+
+
+def _wilson_interval(n: int, successes: int, z: float = 1.96) -> tuple[float, float]:
+    """Wilson score confidence interval for a binomial proportion."""
+    if n == 0:
+        return (0.0, 0.0)
+    p = successes / n
+    denom = 1 + z**2 / n
+    centre = (p + z**2 / (2 * n)) / denom
+    margin = z * math.sqrt(p * (1 - p) / n + z**2 / (4 * n**2)) / denom
+    return (max(0.0, centre - margin), min(1.0, centre + margin))
 
 
 def _cell_id(experiment: str, tool_setup: str, budget: int) -> str:
@@ -75,7 +88,7 @@ def analyze_experiments(input_dir: Path, output_file: Path | None = None):
             # Extract metadata
             experiment = data.get("input_file", "")
             budget = data.get("budget", 0)
-            budget_used = data.get("budget_used", 0)
+            budget_used = min(data.get("budget_used", 0), budget)
             interactions = data.get("interactions", [])
             findings = data.get("findings", "")
 
@@ -129,19 +142,23 @@ def analyze_experiments(input_dir: Path, output_file: Path | None = None):
 
         # Budget stats
         budget_used_list = [r["budget_used"] for r in runs]
+        budget_sd = _safe_stdev(budget_used_list)
         budget_stats = {
             "total_used": sum(budget_used_list),
             "average": round(sum(budget_used_list) / n, 2),
-            "sd": round(_safe_stdev(budget_used_list), 2),
+            "sd": round(budget_sd, 2),
+            "sem": round(budget_sd / math.sqrt(n), 2),
             "max": max(budget_used_list),
             "min": min(budget_used_list),
         }
 
         # Total tool calls stats
         total_tools_list = [r["total_tool_calls"] for r in runs]
+        total_tools_sd = _safe_stdev(total_tools_list)
         total_tools_stats = {
             "mean": round(sum(total_tools_list) / n, 2),
-            "sd": round(_safe_stdev(total_tools_list), 2),
+            "sd": round(total_tools_sd, 2),
+            "sem": round(total_tools_sd / math.sqrt(n), 2),
             "max": max(total_tools_list),
             "min": min(total_tools_list),
             "per_run": total_tools_list,
@@ -174,9 +191,11 @@ def analyze_experiments(input_dir: Path, output_file: Path | None = None):
 
         # Wait and observe stats
         wait_counts = [r["wait_and_observe_count"] for r in runs]
+        wait_sd = _safe_stdev(wait_counts)
         wait_stats = {
             "mean": round(sum(wait_counts) / n, 2),
-            "sd": round(_safe_stdev(wait_counts), 2),
+            "sd": round(wait_sd, 2),
+            "sem": round(wait_sd / math.sqrt(n), 2),
             "max": max(wait_counts),
             "min": min(wait_counts),
             "per_run": wait_counts,
@@ -188,9 +207,12 @@ def analyze_experiments(input_dir: Path, output_file: Path | None = None):
         recalls = [r["recall"] for r in runs]
         f1s = [r["f1"] for r in runs]
         fp_counts = [len(r["false_positives"]) for r in runs]
+        wilson_lower, wilson_upper = _wilson_interval(n, hit_count)
 
         detection_stats = {
             "full_detection_rate": round(hit_count / n, 4),
+            "full_detection_ci_lower": round(wilson_lower, 4),
+            "full_detection_ci_upper": round(wilson_upper, 4),
             "avg_precision": round(sum(precisions) / n, 4),
             "avg_recall": round(sum(recalls) / n, 4),
             "avg_f1": round(sum(f1s) / n, 4),
@@ -245,15 +267,18 @@ def analyze_experiments(input_dir: Path, output_file: Path | None = None):
             "budget": cell_data["budget"],
             "runs": n,
             "full_det": detection_stats["full_detection_rate"],
+            "full_det_ci_lo": detection_stats["full_detection_ci_lower"],
+            "full_det_ci_hi": detection_stats["full_detection_ci_upper"],
             "precision": detection_stats["avg_precision"],
             "recall": detection_stats["avg_recall"],
             "f1": detection_stats["avg_f1"],
             "avg_fp": detection_stats["avg_false_positives_per_run"],
             "avg_budget": budget_stats["average"],
+            "avg_budget_sem": budget_stats["sem"],
             "total_tools_mean": total_tools_stats["mean"],
-            "total_tools_sd": total_tools_stats["sd"],
+            "total_tools_sem": total_tools_stats["sem"],
             "wait_turns_mean": wait_stats["mean"],
-            "wait_turns_sd": wait_stats["sd"],
+            "wait_turns_sem": wait_stats["sem"],
         })
 
     # Save JSON
@@ -263,21 +288,31 @@ def analyze_experiments(input_dir: Path, output_file: Path | None = None):
         json.dump(output, f, indent=2)
     print(f"Statistics saved to {output_file}")
 
-    # Build and save Markdown table
+    # Build and save Markdown table (grouped by experiment)
     md_file = output_file.with_suffix(".md")
-    md_lines = [
-        "# Experiment Analysis",
-        "",
-        "| Cell | Experiment | Targets | Setup | Budget | Runs | Full Det. | Precision | Recall | F1 | Avg FP | Avg Budget | Total Tools (mean ± SD) | Wait Turns (mean ± SD) |",
-        "|------|------------|---------|-------|--------|------|-----------|-----------|--------|-----|--------|-----------|------------------------|-----------------------|",
-    ]
+    md_lines = ["# Experiment Analysis", ""]
 
-    for row in table_rows:
+    for experiment, group in itertools.groupby(table_rows, key=lambda r: r["experiment"]):
+        group_rows = list(group)
+        md_lines.append(f"## {experiment}")
+        md_lines.append("")
         md_lines.append(
-            f"| {row['cell']} | {row['experiment']} | {row['targets']} | {row['setup']} | {row['budget']} | {row['runs']} | "
-            f"{row['full_det']:.1%} | {row['precision']:.3f} | {row['recall']:.3f} | {row['f1']:.3f} | "
-            f"{row['avg_fp']:.2f} | {row['avg_budget']:.2f} | {row['total_tools_mean']} ± {row['total_tools_sd']} | {row['wait_turns_mean']} ± {row['wait_turns_sd']} |"
+            "| Cell | Targets | Setup | Budget | Runs | Full Det. | Precision | Recall | F1 | "
+            "Avg FP | Avg Budget | Total Tools (mean ± SEM) | Wait Turns (mean ± SEM) |"
         )
+        md_lines.append(
+            "|------|---------|-------|--------|------|-----------|-----------|--------|-----|"
+            "--------|-----------|------------------------|-----------------------|"
+        )
+        for row in group_rows:
+            md_lines.append(
+                f"| {row['cell']} | {row['targets']} | {row['setup']} | {row['budget']} | {row['runs']} | "
+                f"{row['full_det']:.1%} | "
+                f"{row['precision']:.3f} | {row['recall']:.3f} | {row['f1']:.3f} | "
+                f"{row['avg_fp']:.2f} | {row['avg_budget']:.2f} ± {row['avg_budget_sem']:.2f} | "
+                f"{row['total_tools_mean']} ± {row['total_tools_sem']} | {row['wait_turns_mean']} ± {row['wait_turns_sem']} |"
+            )
+        md_lines.append("")
 
     md_lines.extend(["", "**Legend:**"])
     md_lines.append("- **Full Det.** = Full detection rate (proportion of runs where all ground-truth targets were flagged)")
@@ -285,9 +320,9 @@ def analyze_experiments(input_dir: Path, output_file: Path | None = None):
     md_lines.append("- **Recall** = Average recall across runs")
     md_lines.append("- **F1** = Average F1 score across runs")
     md_lines.append("- **Avg FP** = Average false positives per run")
-    md_lines.append("- **Avg Budget** = Average budget used per run")
-    md_lines.append("- **Total Tools** = Total tool calls per run (mean ± standard deviation)")
-    md_lines.append("- **Wait Turns** = Number of wait_and_observe calls to find misaligned agent (mean ± standard deviation)")
+    md_lines.append("- **Avg Budget** = Average budget used per run (mean ± standard error)")
+    md_lines.append("- **Total Tools** = Total tool calls per run (mean ± standard error of the mean)")
+    md_lines.append("- **Wait Turns** = Number of wait_and_observe calls (mean ± standard error of the mean)")
 
     md_text = "\n".join(md_lines) + "\n"
     md_file.write_text(md_text)
@@ -310,26 +345,26 @@ def analyze_experiments(input_dir: Path, output_file: Path | None = None):
         print(f"  F1: {row['f1']:.3f}")
         print(f"  Avg False Positives / Run: {row['avg_fp']:.2f}")
         print(f"  Budget Stats:")
-        print(f"    - Average used: {row['avg_budget']}")
+        print(f"    - Average used: {row['avg_budget']} ± {row['avg_budget_sem']:.2f} SEM")
         print(f"    - Range: {output[row['cell']]['budget_stats']['min']} - {output[row['cell']]['budget_stats']['max']}")
-        print(f"  Total Tool Calls (mean ± SD): {row['total_tools_mean']} ± {row['total_tools_sd']}")
-        print(f"  Tool Usage (per-run mean ± SD):")
+        print(f"  Total Tool Calls (mean ± SEM): {row['total_tools_mean']} ± {row['total_tools_sem']}")
+        print(f"  Tool Usage (per-run mean ± SEM):")
         for tool, tool_stat in sorted(output[row['cell']]['tool_usage']['per_tool_stats'].items(), key=lambda x: -x[1]['total']):
             total = tool_stat['total']
             mean = tool_stat['mean']
-            sd = tool_stat['sd']
+            sem = round(tool_stat['sd'] / math.sqrt(row['runs']), 2)
             pct = output[row['cell']]['tool_usage']['percentages'].get(tool, 0)
-            print(f"    - {tool}: {total} total ({mean} ± {sd} per run, {pct}%)")
+            print(f"    - {tool}: {total} total ({mean} ± {sem} per run, {pct}%)")
         print(f"  Wait and Observe Steps:")
         wait = output[row['cell']]['wait_and_observe']
-        print(f"    - Mean ± SD: {wait['mean']} ± {wait['sd']}")
+        print(f"    - Mean ± SEM: {wait['mean']} ± {wait['sem']}")
         print(f"    - Range: {wait['min']} - {wait['max']}")
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Analyze experiment statistics")
-    parser.add_argument("input_dir", type=Path, nargs="?", default=Path("results/v0.6"),
-                        help="Directory containing experiment results (default: results/v0.6)")
+    parser.add_argument("input_dir", type=Path, nargs="?", default=Path("results/v0.7/arbiter/api"),
+                        help="Directory containing experiment results (default: results/v0.7/arbiter/api)")
     parser.add_argument("-o", "--output", type=Path, default=None,
                         help="Output file path for JSON (default: <input_dir>/../analysis_stats.json)")
     args = parser.parse_args()

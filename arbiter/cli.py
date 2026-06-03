@@ -149,6 +149,9 @@ def build_parser() -> argparse.ArgumentParser:
     )
     agent_p.add_argument("--max-new-tokens", type=int, default=400)
     agent_p.add_argument("--load-in-4bit", action="store_true")
+    agent_p.add_argument(
+        "--debug", action="store_true", help="Print full arbiter input/output per turn"
+    )
 
     # --- experiments ---
     exp_p = subparsers.add_parser(
@@ -333,6 +336,7 @@ def cmd_agent(args, cfg: dict):
             budget=args.budget,
             max_new_tokens=args.max_new_tokens,
             load_in_4bit=args.load_in_4bit,
+            debug=args.debug,
         )
     )
 
