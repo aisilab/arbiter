@@ -160,7 +160,18 @@ air-gapped runs.
 ## Roadmap
 
 - [x] Debug `arbiter agent` -> now supports LoRA adapters as model organisms
-- [ ] Add an option for a simplified evaluation based on multiple choice
-- [x] Add a tool for the arbiter agent to wait and observe more conversation before acting
-- [ ] Add inspect CoT tool for the arbiter agent
-- [ ] Add interpretability tools for the arbiter agent 
+- [ ] Add an option for a simplified alignment audit based on multiple choice
+- [X] Add a tool for the arbiter agent to wait and observe more conversation before acting
+- [X] Add inspect CoT tool for the arbiter agent
+- [ ] Add interpretability tools for the arbiter agent
+
+## How to cite
+
+```bibtex
+@article{tonini2026arbiter,
+  title={The Arbiter Agent: Continually Monitoring Multi-Agent Conversations to Detect Emergent Misalignment},
+  author={Tonini, Filippo and Torrielli, Federico and Lautrup, Anton Danholt and Schneider-Kamp, Peter and {\c{C}}elikok, Mustafa Mert and Poech, Lukas Galke},
+  journal={arXiv preprint arXiv:2606.10747},
+  year={2026}
+}
+```
