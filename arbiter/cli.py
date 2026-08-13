@@ -9,9 +9,14 @@ import os
 from datetime import datetime, timezone
 from pathlib import Path
 
-from dotenv import load_dotenv
+from dotenv import find_dotenv, load_dotenv
 
-load_dotenv()
+# Prefer a .env in (or above) the current working directory; fall back to
+# one located relative to this file only if the cwd tree has none. Plain
+# load_dotenv() only ever does the latter, which misses the caller's own
+# .env whenever arbiter is installed editable from elsewhere (e.g. a
+# sibling clone of the project being audited).
+load_dotenv(find_dotenv(usecwd=True) or find_dotenv())
 
 
 _OFFLINE_JUDGE_BACKENDS = {"offline", "local", "transformers"}
