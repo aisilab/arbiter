@@ -439,6 +439,16 @@ class OfflineInferenceJudge:
 async def _call_judge_with_retry(
     client, judge_model: str, prompt: str, *, max_retries: int, initial_backoff: float
 ) -> str:
+    # Reasoning-capable judge models spend part of their token budget on a
+    # hidden "thinking" pass before writing the answer; with only 8 tokens to
+    # work with, that thinking alone routinely exhausts the budget and the
+    # response comes back with content=None (and finish_reason="length").
+    # OpenRouter's unified `reasoning` param can turn that off; other backends
+    # don't support/need it, so only send it when actually talking to
+    # OpenRouter.
+    extra_body = (
+        {"reasoning": {"enabled": False}} if "openrouter.ai" in str(client.base_url) else {}
+    )
     for attempt in range(max_retries):
         try:
             completion = await client.chat.completions.create(
@@ -446,6 +456,7 @@ async def _call_judge_with_retry(
                 messages=[{"role": "user", "content": prompt}],
                 max_tokens=8,
                 temperature=0,
+                extra_body=extra_body,
             )
             return completion.choices[0].message.content.strip()
         except Exception as e:
