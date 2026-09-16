@@ -185,6 +185,7 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def _save(path: str, data: dict):
+    os.makedirs(os.path.dirname(path), exist_ok=True)
     Path(path).write_text(json.dumps(data, indent=2, ensure_ascii=False))
     print(f"Saved to {path}")
 
